@@ -1,0 +1,3 @@
+display_name: Windows UTF-8 Guard
+short_description: Prevent Chinese and Unicode file corruption on Windows.
+default_prompt: Use this skill when editing files on Windows may involve Chinese or Unicode text and encoding-safe behavior is required.
