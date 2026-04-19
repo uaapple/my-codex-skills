@@ -1,0 +1,3 @@
+display_name: Plan To Todo
+short_description: Save an agreed plan as a project todo file.
+default_prompt: Use this skill only when explicitly asked to convert the accepted solution into a persistent project todo file or update that file after progress.
