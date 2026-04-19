@@ -11,7 +11,7 @@ This repo is organized as:
 ## Skills
 
 - `windows-utf8-guard`: Prevent file corruption and mojibake when Codex edits text files on Windows, especially with Chinese or other non-ASCII text.
-- `plan-to-todo`: Manually freeze an agreed solution into `.codex/active-todo.md` and keep the same todo file updated across later turns.
+- `plan-to-todo`: 手动把当前已确认方案整理成中文任务清单，保存到工程内的 `plan-to-do/` 目录，并支持并行维护多个 todo 文件。
 
 ## Repository Layout
 
@@ -27,6 +27,8 @@ my-codex-skills/
     SKILL.md
     agents/
       openai.yaml
+    references/
+      example-todo.md
 ```
 
 ## Install A Skill
