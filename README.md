@@ -11,6 +11,7 @@ This repo is organized as:
 ## Skills
 
 - `windows-utf8-guard`: Prevent file corruption and mojibake when Codex edits text files on Windows, especially with Chinese or other non-ASCII text.
+- `plan-to-todo`: Manually freeze an agreed solution into `.codex/active-todo.md` and keep the same todo file updated across later turns.
 
 ## Repository Layout
 
@@ -22,16 +23,21 @@ my-codex-skills/
       openai.yaml
     references/
       windows-utf8-rules.md
+  plan-to-todo/
+    SKILL.md
+    agents/
+      openai.yaml
 ```
 
 ## Install A Skill
 
 Install a single skill by repository path.
 
-Example:
+Examples:
 
 ```powershell
 python "C:\Users\YOUR_NAME\.codex\skills\.system\skill-installer\scripts\install-skill-from-github.py" --repo uaapple/my-codex-skills --path windows-utf8-guard
+python "C:\Users\YOUR_NAME\.codex\skills\.system\skill-installer\scripts\install-skill-from-github.py" --repo uaapple/my-codex-skills --path plan-to-todo
 ```
 
 After installation, restart Codex so the new skill is discovered.
@@ -45,6 +51,7 @@ Example:
 ```text
 my-codex-skills/
   windows-utf8-guard/
+  plan-to-todo/
   simulink-pdf-parser/
   another-skill/
 ```
