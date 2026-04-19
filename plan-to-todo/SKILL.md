@@ -1,117 +1,147 @@
 ---
 name: plan-to-todo
-description: Turn an agreed solution from the current conversation into a persisted project todo list and keep that todo list updated across later turns. Use only when the user explicitly asks to activate this skill by name or slash-style command; do not auto-trigger it from general planning requests.
+description: 将当前对话里用户认可的方案手动整理成中文任务清单文档，并保存到工程内的 `plan-to-do/` 目录。仅在用户明确点名或手动激活 `plan-to-todo` 时使用；支持并行创建多个 todo 文件，文件名应根据方案内容自动提炼。
 ---
 
 # Plan To Todo
 
-## Overview
+## 概述
 
-Freeze the currently agreed solution into a project-local markdown todo file, then keep that same file updated as work progresses. This skill is manual-only: use it only when the user explicitly asks for `plan-to-todo`.
+把当前对话中已经达成一致、且用户认可的方案，整理成一份中文 markdown 任务清单，并保存到工程内固定目录中。这个技能必须手动触发，不能自动启用。
 
-## Fixed Output Path
+## 固定输出目录
 
-Always write to this project-local path:
+始终把任务清单保存到项目根目录下的：
 
-`<repo-root>/.codex/active-todo.md`
+`<repo-root>/plan-to-do/`
 
-If `.codex/` does not exist in the project root, create it.
+如果该目录不存在，就创建它。
 
-## When To Use
+## 文件命名规则
 
-Use this skill only in either of these situations:
+每一份 todo 文件都必须是独立文件，不复用旧文件路径。
 
-- The user explicitly asks to activate `plan-to-todo`, or uses slash-style wording to convert the agreed plan into a todo file.
-- The user explicitly asks to refresh or update the existing todo file after some tasks were completed.
+文件名规则：
 
-Do not auto-trigger this skill for ordinary planning, brainstorming, or implementation work.
+- 根据当前方案的核心内容自动提炼一个简短名字。
+- 优先使用中文文件名。
+- 文件名应能体现主题，便于和其他 todo 区分。
+- 推荐格式：
 
-## Workflow
+`YYYY-MM-DD-方案简称.md`
 
-### 1. Identify the source plan
+例如：
 
-Look at the current conversation and find the most recent assistant answer that the user accepted as the plan or solution.
+- `2026-04-20-gemma4调研拆解.md`
+- `2026-04-20-rockstar代理排查.md`
+- `2026-04-20-技能仓库整理.md`
 
-If the accepted solution is ambiguous, ask one short question to confirm which answer should be frozen into the todo file.
+如果内容相近导致可能重名，就在末尾补一个短后缀以区分。
 
-### 2. Summarize the agreed plan
+## 何时使用
 
-Write a short summary of the accepted solution at the top of the file. This summary should capture the overall approach, not every implementation detail.
+只有在以下情况才使用本技能：
 
-### 3. Derive sensible sub-tasks
+- 用户明确要求激活 `plan-to-todo`
+- 用户用类似斜杠命令或明确措辞，要求“把刚才确认的方案整理成 todo”
 
-Split the agreed solution into practical, ordered sub-tasks that make sense to execute one by one.
+不要在普通 planning、brainstorming、编码执行、调试过程中自动触发本技能。
 
-Requirements:
+## 工作流程
 
-- Keep tasks concrete and action-oriented.
-- Prefer 4-10 tasks unless the work is genuinely larger.
-- Order tasks by dependency.
-- Avoid mixing multiple unrelated actions into one checkbox.
-- Include verification or cleanup tasks only when they materially help complete the work.
+### 1. 确认来源方案
 
-### 4. Persist the todo file
+查看当前对话，定位最近一轮中用户明确认可的方案或答案。
 
-Create or overwrite `<repo-root>/.codex/active-todo.md` with the current plan and task list when the user asks to freeze a new plan.
+如果有歧义，只问一个简短问题确认“要把哪一版方案整理成 todo”。
 
-When the user asks to update progress later, edit the same file instead of creating a new one.
+### 2. 提炼整体方案说明
 
-### 5. Reuse the file in later turns
+在文档最上方先写“已确认方案”，用 2 到 6 句话概括整体思路。
 
-On later manual activations of this skill:
+要求：
 
-- Read `<repo-root>/.codex/active-todo.md` first.
-- Mark completed tasks as done.
-- Update progress notes if needed.
-- Keep unfinished tasks in order.
-- If a completed task changes the next steps, revise the remaining tasks to stay sensible.
+- 用中文写
+- 抓住主线，不要展开成实现细节
+- 让后续只读这份文档的人也能明白整体目标
 
-## File Format
+### 3. 拆分子任务
 
-Always use this markdown structure:
+把已确认方案拆成一组合 理、可执行、顺序清晰的子任务。
+
+要求：
+
+- 使用中文
+- 任务表达要具体、可落地
+- 一般拆成 4 到 10 项，除非任务本身明显更大
+- 按依赖关系排序
+- 不要把多个不相关动作混进一个复选框
+- 只有在确实必要时，才加入验证、收尾、复查任务
+
+### 4. 创建独立 todo 文件
+
+每次手动激活本技能生成方案清单时，都创建一份新的 todo 文件，而不是覆盖旧文件。
+
+保存位置：
+
+`<repo-root>/plan-to-do/<自动提炼文件名>.md`
+
+### 5. 后续继续使用
+
+当用户后续要求“继续按某份 todo 往下做”时：
+
+- 先读取用户指定的 todo 文件
+- 如果用户没指定，就列出 `plan-to-do/` 目录里现有文件并让用户选择，或在上下文足够明确时合理推断
+- 按未完成任务继续推进
+- 完成后更新该文件中的状态
+
+## 文档格式
+
+始终使用下面这种中文结构：
 
 ```md
-# Active Todo
+# 任务清单
 
-## Agreed Plan
-<2-6 sentence summary of the solution the user accepted>
+## 已确认方案
+<2-6 句话的中文方案摘要>
 
-## Task List
-- [ ] Task 1
-- [ ] Task 2
-- [ ] Task 3
+## 子任务
+- [ ] 任务 1
+- [ ] 任务 2
+- [ ] 任务 3
 
-## Progress Notes
-- Created from conversation on YYYY-MM-DD.
-- Optional: short note about what changed during later updates.
+## 备注
+- 创建时间：YYYY-MM-DD
+- 来源：根据当前对话中已确认方案自动生成
 ```
 
-Rules:
+规则：
 
-- Use `- [ ]` for pending tasks.
-- Use `- [x]` for completed tasks.
-- Keep the plan summary above the task list.
-- Keep the wording compact and readable.
+- 待完成任务使用 `- [ ]`
+- 已完成任务使用 `- [x]`
+- 总方案摘要必须放在任务列表上方
+- 全文优先使用中文
 
-## Update Rules
+## 更新规则
 
-When asked to continue from the todo file:
+当用户后续要求继续执行某个 todo 文件时：
 
-- Read the file before deciding the next step.
-- Prefer the first unfinished task unless the user explicitly reprioritizes.
-- After completing meaningful work, update the checkbox state in the file.
-- If a task is too large once implementation starts, split it into smaller follow-up tasks in the same file.
+- 先读文件，再决定下一步
+- 默认优先处理第一个未完成任务
+- 每完成一个阶段性任务，就回写完成状态
+- 如果执行过程中发现某项任务太大，可以在原文件中细分为更合理的后续子任务
 
-## Output Behavior
+## 输出行为
 
-After writing or updating the file:
+创建或更新文件后，需要告诉用户：
 
-- Tell the user which file was written.
-- Briefly summarize the plan and the number of tasks.
-- Mention the next unfinished task when relevant.
+- 写入了哪个文件
+- 方案摘要是什么
+- 当前一共拆成了多少项任务
+- 下一项未完成任务是什么
 
-## Boundaries
+## 边界
 
-- Do not create multiple competing todo files.
-- Do not invent a plan if the conversation has not converged on one.
-- Do not auto-activate this skill without explicit user instruction.
+- 不要把所有方案都写进同一个 todo 文件
+- 不要在用户尚未认可方案时擅自生成 todo
+- 不要自动触发本技能
