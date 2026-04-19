@@ -1,3 +1,3 @@
 display_name: Plan To Todo
-short_description: Save an agreed plan as a project todo file.
-default_prompt: Use this skill only when explicitly asked to convert the accepted solution into a persistent project todo file or update that file after progress.
+short_description: 手动把已确认方案整理成中文任务清单。
+default_prompt: 仅在用户明确要求时使用此技能，把当前对话中已确认的方案整理为中文任务清单并保存到工程内的 plan-to-do 目录。
