@@ -44,10 +44,12 @@ Do not assume `.mat` variables are valid until `CornexCsc.Signal` and `CornexCsc
 
 ### Static SLX Inspection
 
-Use SATK/MATLAB as the authority, but static `.slx` XML inspection is a useful preflight when you need exact block parameters or connectivity quickly:
+Use SATK/MCP/MATLAB as the authority. Static `.slx` XML inspection is only a supplement after SATK/MCP/MATLAB has been attempted or used, and only when you need exact block parameters, SIDs, or connectivity.
 
 ```bash
-unzip -p <model>.slx simulink/systems/system_*.xml | rg "MultiPortSwitch|MinMax|Saturate|<Line|PwrLim"
+SKILL_DIR=/path/to/simulink-ut-tcsd-generator
+MODEL_SLX=MODEL.slx
+python3 "$SKILL_DIR/scripts/inspect_slx_xml.py" "$MODEL_SLX" --pattern "MultiPortSwitch|MinMax|Saturate|<Line|PwrLim"
 ```
 
 This is especially useful for:
@@ -55,6 +57,8 @@ This is especially useful for:
 - finding `DataPortOrder`, `Inputs`, `UpperLimit`, `LowerLimit`, constants, and calibration names before designing stimuli;
 - mapping SIDs from coverage reports/screenshots to block names and line sources/destinations;
 - checking whether a selector is filter-derived, lookup-derived, or a direct root input.
+
+Do not pipe `.slx`/zip/XML output directly into an interpreter such as `python3 -c`. Use `scripts/inspect_slx_xml.py` or another file-reading script instead.
 
 Do not use XML alone for final values. Run simulation after drafting the stimuli.
 

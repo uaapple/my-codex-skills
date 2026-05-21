@@ -33,8 +33,10 @@ Ask the user only when required input files or runtime dependencies are missing,
 
 ## Core Rules
 
-- Use Simulink Agentic Toolkit first for model understanding: `model_overview`, `model_read`, `model_query_params`, `model_resolve_params`, and `evaluate_matlab_code`.
+- Use Simulink Agentic Toolkit / MCP first for model understanding: `model_overview`, `model_read`, `model_query_params`, `model_resolve_params`, and `evaluate_matlab_code`.
 - If direct MATLAB MCP tools are unavailable, run `scripts/satk_eval.py` with a MATLAB code file.
+- Do not replace SATK/MCP/MATLAB model reading with static `.slx` XML parsing. Static XML is only a supplement after SATK/MCP/MATLAB has been attempted or used, and only for exact SIDs, block parameters, or connectivity.
+- Do not pipe `.slx`/zip/XML output directly into interpreters such as `python3 -c`, `perl`, `ruby`, or `node -e`. If static XML inspection is needed, use `scripts/inspect_slx_xml.py MODEL.slx --pattern REGEX` or a checked-in file-reading script.
 - Copy `assets/support-package` into the working folder before loading the model unless the project already has equivalent Cornex/ITK dependencies.
 - Use `assets/templates/tcsd_template.xlsx` as the required TCSD workbook template. Preserve its `TCSD` sheet, columns, row conventions, freeze pane, styles, comments/status options, and workbook structure so the downstream automatic test software can import it.
 - Fill expected outputs only for top-level Outport signals. Never put model-internal/local signals in `Action` as `expValue(...)`.
@@ -67,7 +69,7 @@ Ask the user only when required input files or runtime dependencies are missing,
    - Use SATK to load support paths, run `init_Global.m`, load the `.mat`, load `ITKLib.slx`, then load the model.
    - Derive root Inport and Outport order from the model, not from guesses.
    - Read the subsystem hierarchy and the blocks around Switch, Multiport Switch, Lookup Table, Delay, Latch, GradientLimiter, Safe_Divide, Min/Max, and logical operators.
-   - Use static `.slx` XML inspection as a cheap supplement when block paths, SIDs, constants, or line connectivity are needed before a full MATLAB probe.
+   - Use static `.slx` XML inspection only as a supplement after SATK/MCP/MATLAB model reading, when block paths, SIDs, constants, or line connectivity are needed. Prefer `scripts/inspect_slx_xml.py`; do not use shell pipelines that feed zip/XML output into inline interpreter commands.
    - Build a block-level coverage-obligation checklist before writing tests. See `references/coverage-closure.md`.
 
 3. **Design TCSD cases**

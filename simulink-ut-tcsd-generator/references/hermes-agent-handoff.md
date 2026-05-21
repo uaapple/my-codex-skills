@@ -132,13 +132,17 @@ Treat every decision outcome as an obligation:
 
 ## Static SLX Inspection
 
-SATK/MATLAB is the authority, but static `.slx` XML inspection is very useful for exact blocks:
+SATK/MCP/MATLAB is the authority. Static `.slx` XML inspection is only a supplement after SATK/MCP/MATLAB model reading has been attempted or used, and only for exact SIDs, block parameters, and line connectivity:
 
 ```bash
-unzip -p <model>.slx simulink/systems/system_*.xml | rg "MultiPortSwitch|MinMax|Saturate|<Line|<Branch"
+SKILL_DIR=/path/to/simulink-ut-tcsd-generator
+MODEL_SLX=MODEL.slx
+python3 "$SKILL_DIR/scripts/inspect_slx_xml.py" "$MODEL_SLX" --pattern "MultiPortSwitch|MinMax|Saturate|<Line|<Branch"
 ```
 
-Use it to find SIDs, constants, block parameters, `DataPortOrder`, `Inputs`, `UpperLimit`, `LowerLimit`, and line connectivity. Always run simulation after designing stimuli.
+Do not pipe `.slx`/zip/XML output directly into interpreters such as `python3 -c`, `perl`, `ruby`, or `node -e`. That pattern can trigger security approval and encourages bypassing SATK/MCP model reading.
+
+Use static inspection to find SIDs, constants, block parameters, `DataPortOrder`, `Inputs`, `UpperLimit`, `LowerLimit`, and line connectivity. Always run simulation after designing stimuli.
 
 ## Simulation and Script Lessons
 
