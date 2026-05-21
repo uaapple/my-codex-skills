@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+"""Extract TCSD initializations/actions into JSON for simulation backfill."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+from pathlib import Path
+
+from openpyxl import load_workbook
+
+
+STEP_RE = re.compile(r"^\s*\[\+\s*([0-9.]+)\s*(ms|s)\s*\](.*)$", re.IGNORECASE)
+NUMBER = r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
+VALUE = rf"({NUMBER}|\[\s*{NUMBER}(?:[\s,]+{NUMBER})*\s*\])"
+PARAM_RE = re.compile(rf"^\s*p\s+([A-Za-z_]\w*)\s*=\s*{VALUE}\s*;")
+ASSIGN_RE = re.compile(rf"^\s*([A-Za-z_]\w*)\s*=\s*{VALUE}\s*;")
+
+
+def parse_value(text: str) -> float | list[float]:
+    text = text.strip()
+    if text.startswith("["):
+        inner = text.strip("[]")
+        return [float(item) for item in re.split(r"[\s,]+", inner.strip()) if item]
+    return float(text)
+
+
+def parse_assignments(text: str, input_names: set[str]) -> tuple[dict[str, object], dict[str, object]]:
+    inputs: dict[str, object] = {}
+    params: dict[str, object] = {}
+    for raw in (text or "").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("//"):
+            continue
+        param_match = PARAM_RE.match(line)
+        if param_match:
+            params[param_match.group(1)] = parse_value(param_match.group(2))
+            continue
+        assign_match = ASSIGN_RE.match(line)
+        if assign_match and assign_match.group(1) in input_names:
+            inputs[assign_match.group(1)] = parse_value(assign_match.group(2))
+    return inputs, params
+
+
+def delay_seconds(amount: str, unit: str) -> float:
+    value = float(amount)
+    return value / 1000.0 if unit.lower() == "ms" else value
+
+
+def parse_steps(action: str, input_names: set[str]) -> list[dict]:
+    steps: list[dict] = []
+    current: dict | None = None
+    for raw in (action or "").splitlines():
+        match = STEP_RE.match(raw)
+        if match:
+            if current is not None:
+                steps.append(current)
+            current = {
+                "marker": raw,
+                "delay_s": delay_seconds(match.group(1), match.group(2)),
+                "input_updates": {},
+                "param_updates": {},
+            }
+            continue
+        if current is None:
+            continue
+        inputs, params = parse_assignments(raw, input_names)
+        current["input_updates"].update(inputs)
+        current["param_updates"].update(params)
+    if current is not None:
+        steps.append(current)
+    for idx, step in enumerate(steps, start=1):
+        step["index"] = idx
+    return steps
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--workbook", required=True)
+    parser.add_argument("--inputs", required=True, help="Comma-separated root input names")
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+
+    input_names = {name.strip() for name in args.inputs.split(",") if name.strip()}
+    wb = load_workbook(args.workbook)
+    ws = wb["TCSD"]
+    tests = []
+    for row in range(1, ws.max_row + 1):
+        if ws.cell(row, 3).value != "Test":
+            continue
+        init_inputs, init_params = parse_assignments(ws.cell(row, 6).value or "", input_names)
+        tests.append(
+            {
+                "row": row,
+                "test_id": ws.cell(row, 1).value,
+                "name": ws.cell(row, 2).value,
+                "init_values": init_inputs,
+                "init_params": init_params,
+                "steps": parse_steps(ws.cell(row, 7).value or "", input_names),
+            }
+        )
+    out = Path(args.output)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({"tests": tests}, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(out)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

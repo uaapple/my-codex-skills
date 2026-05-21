@@ -1,0 +1,4 @@
+interface:
+  display_name: "Simulink HIL TCSD Generator"
+  short_description: "Generate and repair coverage-closed HIL TCSD Excel cases from Simulink SLX/MAT models."
+  default_prompt: "Use this skill to generate or repair coverage-oriented HIL TCSD test cases from a Simulink .slx model and its corresponding .mat file."
