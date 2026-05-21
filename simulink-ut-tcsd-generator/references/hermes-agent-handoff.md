@@ -122,7 +122,7 @@ Treat every decision outcome as an obligation:
 
 - `MinMax`: every input port should win at least once. Avoid equal/tie values because coverage attribution can be ambiguous.
 - `MultiPortSwitch`: cover every valid selector value and default/otherwise only if the model safely accepts that selector.
-- `Saturate`: cover below-low, pass-through, and above-high regions. If calibration/lookup values can never exceed a limit, record the remaining region as unreachable rather than unsafe table manipulation.
+- `Saturate`: cover below-low, pass-through, and above-high regions by proving the pre-saturation input crosses the limits. If calibration/lookup values can never exceed a limit, record the remaining region as unreachable rather than unsafe table manipulation.
 - `RelationalOperator`/`Switch`: cover both true and false by driving the actual trigger signal across the block criterion. For sign criteria such as `< 0`, `<= 0`, `~= 0`, or `u2 ~= 0`, include negative, zero, and positive/equality-side values as applicable.
 - `Safe_Divide`: denominator zero/protected path and normal nonzero path.
 - `Lookup_n-D`: use low/mid/high and edge breakpoints that influence downstream decisions.
@@ -173,7 +173,7 @@ Important misses and fixes:
 - `Abs` blocks need source-sign coverage, not just magnitude coverage. In `A01_EngMaxTq`, a normal negative `icisg_tqISGMin` covers only the negative-source side; add a positive-source case if the coverage report flags the other side. In `B01_PredSpd`/efficiency paths, use negative speed or a strong transition before the `Abs` when the source sign is what matters.
 - `B02_ISGPwrEff` `MultiPortSwitch` covered selector `0/1/2` but missed `3` and `4`. Use 380V/400V in Initialization or shorten `PwrLimEng_tiISGVoltFilt_C`; a short 0.2s step with the original LowPass may not settle enough.
 - For `B02_ISGPwrEff`, setting `icisg_uAct` to 400 or 450 is not sufficient evidence that selector `*,4` was reached. Probe the selector after LowPass/lookup, or force a settled high-voltage selector with Initialization/parameter override.
-- `B02_ISGPwrEff` `Saturation1` must cover below-low, pass-through, and above-high pre-saturation values. If the MAT lookup/calibration tables keep values within `[0.1, 1]`, document low/high saturation branches as unreachable rather than using unsafe table edits.
+- `B02_ISGPwrEff` `Saturation1` must cover below-low, pass-through, and above-high pre-saturation values. Before generating cases, inspect or probe the signal entering `Saturation1`; extreme `icisg_uAct`, speed, or torque values are not evidence by themselves. If the MAT lookup/calibration tables keep values within `[0.1, 1]`, document low/high saturation branches as unreachable rather than using unsafe table edits.
 - AWD and non-AWD efficiency paths can have separate MultiPortSwitch/Saturate blocks; cover high-voltage selector regions in both when present.
 - In `B04_ISGPwrEffAWD`, the final Switch true branch requires `icisg_tqAct < 0`. AWD mode, high voltage, or `icisg_tqAct > 0` only exercises the false branch; include a negative `icisg_tqAct` step and confirm the logical trigger is true.
 - `B03_ISGLimTq` final output Min/Max blocks need tests where each candidate wins: input torque limit, power-derived limit, zero override/protection, startup/temperature limit.
