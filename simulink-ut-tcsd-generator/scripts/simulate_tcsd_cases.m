@@ -1,7 +1,7 @@
 function simulate_tcsd_cases(rootDir, modelName, matFile, caseJson, resultJson)
 modelName = char(string(modelName));
 matFile = char(string(matFile));
-setup_hil_support(rootDir);
+setup_ut_support(rootDir);
 try
     bdclose(modelName);
 catch
@@ -184,7 +184,7 @@ end
 ds = Simulink.SimulationData.Dataset;
 for k = 1:numel(inputNames)
     name = inputNames{k};
-    data = cast_input_for_simulink_hil(seriesData.(name), inputTypes.(name));
+    data = cast_input_for_simulink_ut(seriesData.(name), inputTypes.(name));
     if inputDims.(name) == 1
         data = data(:, 1);
     end

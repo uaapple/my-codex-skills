@@ -1,4 +1,4 @@
-function data = cast_input_for_simulink_hil(data, dtype)
+function data = cast_input_for_simulink_ut(data, dtype)
 dtype = char(string(dtype));
 switch dtype
     case {'single'}

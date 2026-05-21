@@ -24,7 +24,7 @@ For every item, write one of: `covered by TC_xxx`, `needs supplemental test`, or
 - For `MultiPortSwitch`, derive selector values from the actual block and upstream logic. Do not assume a model-wide enum is valid for every switch.
 - When a selector is produced by voltage/current/speed filtering or lookup logic, hold the source input long enough for the selector to settle, or put the desired source value in Initialization.
 - For Saturate, use values comfortably outside limits, not just exact boundaries.
-- If a value causes simulation to stop because the selector is invalid, do not keep it as a normal HIL case. Cover the default branch only when the block and model allow that selector safely.
+- If a value causes simulation to stop because the selector is invalid, do not keep it as a normal unit-test case. Cover the default branch only when the block and model allow that selector safely.
 - Use scalar parameter overrides to accelerate filters or bypass ramping only when needed for coverage. Keep them explicit in `Initialization` and avoid hiding model behavior without explanation.
 
 ## Use Coverage Feedback

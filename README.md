@@ -12,7 +12,7 @@ This repo is organized as:
 
 - `windows-utf8-guard`: Prevent file corruption and mojibake when Codex edits text files on Windows, especially with Chinese or other non-ASCII text.
 - `plan-to-todo`: 手动把当前已确认方案整理成中文任务清单，保存到工程内的 `plan-to-do/` 目录，支持并行维护多个 todo 文件，也支持手动审核指定 markdown 文件并更新勾选状态。
-- `simulink-hil-tcsd-generator`: Generate and repair coverage-oriented HIL TCSD Excel test cases from Simulink `.slx` models and matching `.mat` files.
+- `simulink-ut-tcsd-generator`: Generate and repair coverage-oriented Simulink unit-test TCSD Excel cases from `.slx` models and matching `.mat` files.
 
 ## Repository Layout
 
@@ -30,7 +30,7 @@ my-codex-skills/
       openai.yaml
     references/
       example-todo.md
-  simulink-hil-tcsd-generator/
+  simulink-ut-tcsd-generator/
     SKILL.md
     agents/
       openai.yaml
@@ -48,7 +48,7 @@ Examples:
 ```powershell
 python "C:\Users\YOUR_NAME\.codex\skills\.system\skill-installer\scripts\install-skill-from-github.py" --repo uaapple/my-codex-skills --path windows-utf8-guard
 python "C:\Users\YOUR_NAME\.codex\skills\.system\skill-installer\scripts\install-skill-from-github.py" --repo uaapple/my-codex-skills --path plan-to-todo
-python "C:\Users\YOUR_NAME\.codex\skills\.system\skill-installer\scripts\install-skill-from-github.py" --repo uaapple/my-codex-skills --path simulink-hil-tcsd-generator
+python "C:\Users\YOUR_NAME\.codex\skills\.system\skill-installer\scripts\install-skill-from-github.py" --repo uaapple/my-codex-skills --path simulink-ut-tcsd-generator
 ```
 
 After installation, restart Codex so the new skill is discovered.

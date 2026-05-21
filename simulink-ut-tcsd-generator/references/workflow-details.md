@@ -75,7 +75,7 @@ For each major subsystem, create one or more Test rows that cover:
 - Gradient limiter/ramp behavior with enough time steps.
 - Mode switches with only model-valid selector values.
 
-Prefer fewer meaningful tests over many random tests. Coverage is the first priority, but invalid selector values that make the model stop are not useful HIL cases unless the test explicitly targets diagnostic behavior.
+Prefer fewer meaningful tests over many random tests. Coverage is the first priority, but invalid selector values that make the model stop are not useful unit-test cases unless the test explicitly targets diagnostic behavior.
 
 ## Coverage Feedback Loop
 
@@ -109,10 +109,10 @@ For larger modules such as HvGrid, many root outputs may be vectors or unsupport
 
 ### Parameter Overrides for Coverage
 
-Scalar calibration overrides are useful when model dynamics hide a decision outcome during short HIL-style steps:
+Scalar calibration overrides are useful when model dynamics hide a decision outcome during short unit-test-style steps:
 
 - shorten filter time constants for voltage/speed selector coverage;
 - disable ramp/gradient limiter enable switches when the goal is final Min/Max candidate coverage rather than ramp-shape verification;
 - keep the override visible in `Initialization` with `p Param = value;` and describe why in the Test description/action comment.
 
-Avoid table/array overrides unless the parser and target HIL toolchain support them.
+Avoid table/array overrides unless the parser and target unit-test toolchain support them.

@@ -1,11 +1,11 @@
 ---
-name: simulink-hil-tcsd-generator
-description: Generate coverage-oriented HIL TCSD Excel test cases from Simulink models. Use when the user provides a specific `.slx` model and matching `.mat` data file and asks Codex to create, repair, or backfill HIL test cases in the same TCSD style as the ACCtl/PwrLimEng examples, especially when Simulink Agentic Toolkit, Cornex/ITK dependencies, `.sldd` data dictionaries, or simulation-derived expected outputs are involved.
+name: simulink-ut-tcsd-generator
+description: Generate coverage-oriented Simulink unit-test TCSD Excel cases from models. Use when the user provides a specific `.slx` model and matching `.mat` data file and asks Codex to create, repair, or backfill unit-test cases in the same TCSD style as the ACCtl/PwrLimEng examples, especially when Simulink Agentic Toolkit, Cornex/ITK dependencies, `.sldd` data dictionaries, or simulation-derived expected outputs are involved.
 ---
 
-# Simulink HIL TCSD Generator
+# Simulink Unit-Test TCSD Generator
 
-Use this skill to turn one Simulink module model plus its MAT data file into a TCSD Excel workbook whose tests prioritize model coverage.
+Use this skill to turn one Simulink module model plus its MAT data file into a TCSD Excel unit-test workbook whose tests prioritize model coverage.
 
 ## Core Rules
 

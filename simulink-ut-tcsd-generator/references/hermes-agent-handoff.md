@@ -1,10 +1,10 @@
 # Hermes Agent Handoff
 
-Read this reference when another agent must generate HIL TCSD cases without access to the original development conversation. It captures the reusable lessons from the ACCtl sample, PwrLimEng generation/repair, and HvGrid generation work.
+Read this reference when another agent must generate Simulink unit-test TCSD cases without access to the original development conversation. It captures the reusable lessons from the ACCtl sample, PwrLimEng generation/repair, and HvGrid generation work.
 
 ## Mission
 
-Given a module-level Simulink model `<model>.slx` and its matching `<model>.mat`, generate a TCSD Excel workbook in the same style as the ACCtl/PwrLimEng examples. The first priority is model coverage, especially decision coverage. Expected outputs are secondary and must be derived from simulation only where stable and only for top-level Outports.
+Given a module-level Simulink model `<model>.slx` and its matching `<model>.mat`, generate a unit-test TCSD Excel workbook in the same style as the ACCtl/PwrLimEng examples. The first priority is model coverage, especially decision coverage. Expected outputs are secondary and must be derived from simulation only where stable and only for top-level Outports.
 
 ## Assumptions and Required Runtime
 
@@ -87,7 +87,7 @@ The biggest correctness issue in the thread was expected-output semantics:
   - `offset`: offset from the current interval.
 - The second and third arguments are not numeric tolerance. Do not use them to express tolerance.
 - For simulation-sampled expected values, write `expValue(value)` by default.
-- If an output ramps or changes during the following hold interval, omit that output from the Test. Do not write one sampled value and then let the HIL checker compare it as a held constant.
+- If an output ramps or changes during the following hold interval, omit that output from the Test. Do not write one sampled value and then let the unit-test/MQT checker compare it as a held constant.
 - Stimulus coverage and expected-output coverage are separate. Keep a Test/action if it improves model coverage even when few outputs are stable enough to backfill.
 
 ## Coverage Design Rules
@@ -120,7 +120,7 @@ Use it to find SIDs, constants, block parameters, `DataPortOrder`, `Inputs`, `Up
   - `scripts/extract_tcsd_cases.py`
   - `scripts/simulate_tcsd_cases.m`
   - `scripts/backfill_expected_outputs.py`
-  - `scripts/setup_hil_support.m`
+  - `scripts/setup_ut_support.m`
   - `scripts/satk_eval.py`
 - The generic extractor supports scalar numeric values and bracketed numeric vectors such as `[5000 5000 5000 5000]`.
 - The generic simulation script handles vector root inputs/outputs; backfill should still usually allow only scalar top-level outputs unless vector TCSD macro mapping is confirmed.

@@ -1,4 +1,4 @@
-function setup_hil_support(rootDir)
+function setup_ut_support(rootDir)
 cd(rootDir);
 warning('off', 'all');
 restoredefaultpath;
