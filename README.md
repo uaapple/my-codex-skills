@@ -53,6 +53,18 @@ python "C:\Users\YOUR_NAME\.codex\skills\.system\skill-installer\scripts\install
 
 After installation, restart Codex so the new skill is discovered.
 
+## Use The Simulink UT Skill
+
+After installing `simulink-ut-tcsd-generator`, the standard generation contract is part of the skill. You only need to name the skill and provide the model files.
+
+Example:
+
+```text
+使用 simulink-ut-tcsd-generator，为 /path/to/Model.slx 和 /path/to/Model.mat 生成单元测试 TCSD 用例。
+```
+
+The skill defaults include copying the bundled support package, reading the model with SATK, prioritizing decision coverage, filling expected values only for top-level Outports, simulation-based stable-output backfill, and writing workbook/spec/result/report files under `outputs/`.
+
 ## Add More Skills
 
 Add each new skill as another top-level folder in this repository.

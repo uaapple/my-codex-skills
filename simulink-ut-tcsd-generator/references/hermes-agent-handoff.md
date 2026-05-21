@@ -6,6 +6,29 @@ Read this reference when another agent must generate Simulink unit-test TCSD cas
 
 Given a module-level Simulink model `<model>.slx` and its matching `<model>.mat`, generate a unit-test TCSD Excel workbook in the same style as the ACCtl/PwrLimEng examples. The first priority is model coverage, especially decision coverage. Expected outputs are secondary and must be derived from simulation only where stable and only for top-level Outports.
 
+## Default Task Contract
+
+If a user tells Hermes or another agent to use `simulink-ut-tcsd-generator` for a model, all standard requirements in this handoff are implicit. Do not ask the user to repeat them.
+
+A minimal prompt is sufficient:
+
+```text
+使用 simulink-ut-tcsd-generator，为 <workdir>/<model>.slx 和 <workdir>/<model>.mat 生成单元测试 TCSD 用例。
+```
+
+The agent must automatically:
+
+- copy `assets/support-package` into the workdir;
+- use Simulink Agentic Toolkit / SATK to read the model;
+- generate coverage-first unit-test TCSD cases, prioritizing decision coverage;
+- write expected values only for top-level Outports;
+- simulate when possible and backfill stable top-level outputs from simulation;
+- omit hold-style expectations for ramping or continuously changing outputs;
+- save `outputs/<model>_Test0001_tcsd.xlsx`, or the next versioned filename if it exists;
+- keep the JSON case spec, simulation-result JSON, and a short validation report with the workbook.
+
+Only ask for clarification when the `.slx`, matching `.mat`, MATLAB/SATK runtime, or a required dependency is actually missing.
+
 ## Assumptions and Required Runtime
 
 - The agent runs on the same machine/user account that can read this skill directory.

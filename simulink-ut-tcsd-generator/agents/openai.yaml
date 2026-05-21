@@ -1,4 +1,4 @@
 interface:
   display_name: "Simulink UT TCSD Generator"
   short_description: "Generate and repair coverage-closed unit-test TCSD Excel cases from Simulink SLX/MAT models."
-  default_prompt: "Use this skill to generate or repair coverage-oriented Simulink unit-test TCSD cases from a .slx model and its corresponding .mat file."
+  default_prompt: "Use this skill to generate coverage-first Simulink unit-test TCSD cases from a .slx model and matching .mat file; assume the bundled support-package copy, SATK model reading, decision-coverage focus, top-level-Outport-only expectations, simulation backfill, outputs/<model>_Test0001_tcsd.xlsx workbook, JSON spec, simulation JSON, and validation report are required by default."

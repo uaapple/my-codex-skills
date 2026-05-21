@@ -1,11 +1,34 @@
 ---
 name: simulink-ut-tcsd-generator
-description: Generate coverage-oriented Simulink unit-test TCSD Excel cases from models. Use when the user provides a specific `.slx` model and matching `.mat` data file and asks Codex to create, repair, or backfill unit-test cases in the same TCSD style as the ACCtl/PwrLimEng examples, especially when Simulink Agentic Toolkit, Cornex/ITK dependencies, `.sldd` data dictionaries, or simulation-derived expected outputs are involved.
+description: Generate coverage-oriented Simulink unit-test TCSD Excel cases from models. Use when the user provides a specific `.slx` model and matching `.mat` data file and asks Codex to create, repair, or backfill unit-test cases in the same TCSD style as the ACCtl/PwrLimEng examples, especially when Simulink Agentic Toolkit, Cornex/ITK dependencies, `.sldd` data dictionaries, or simulation-derived expected outputs are involved. When this skill is named for a model, treat the full coverage-first UT TCSD workflow as the default task contract without requiring the user to repeat it.
 ---
 
 # Simulink Unit-Test TCSD Generator
 
 Use this skill to turn one Simulink module model plus its MAT data file into a TCSD Excel unit-test workbook whose tests prioritize model coverage.
+
+## Default Invocation Contract
+
+When the user invokes or names `simulink-ut-tcsd-generator` and provides a model work folder, `.slx`, or `.mat`, assume the complete workflow below by default. The user should not need to restate the standard requirements every time.
+
+Minimal user prompt is enough:
+
+```text
+使用 simulink-ut-tcsd-generator，为 <workdir>/<model>.slx 和 <workdir>/<model>.mat 生成单元测试 TCSD 用例。
+```
+
+By default, you must:
+
+- Copy `assets/support-package` into the model workdir before loading the model unless equivalent dependencies already exist there.
+- Use Simulink Agentic Toolkit / SATK for model reading and MATLAB evaluation.
+- Generate coverage-first unit-test cases, with decision coverage as the first optimization target.
+- Fill `expValue(...)` only for top-level Outports, never for internal/local/MIL signals.
+- Simulate successfully when possible, then backfill only stable top-level output expectations from simulation results.
+- Avoid hold-style expected values for dynamic, ramping, or continuously changing outputs.
+- Write the workbook to `outputs/<model>_Test0001_tcsd.xlsx`, or the next versioned filename if that output already exists.
+- Preserve a generation JSON spec, simulation-result JSON, and a short validation report alongside the workbook.
+
+Ask the user only when required input files or runtime dependencies are missing, or when the model cannot be loaded after applying the bundled support package.
 
 ## Core Rules
 
