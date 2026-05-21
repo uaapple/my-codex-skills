@@ -25,7 +25,8 @@ By default, you must:
 - Fill `expValue(...)` only for top-level Outports, never for internal/local/MIL signals.
 - Simulate successfully when possible, then backfill only stable top-level output expectations from simulation results.
 - Avoid hold-style expected values for dynamic, ramping, or continuously changing outputs.
-- Write the workbook to `outputs/<model>_Test0001_tcsd.xlsx`, or the next versioned filename if that output already exists.
+- Build the Excel workbook from `assets/templates/tcsd_template.xlsx`; this bundled template is the canonical TCSD input format expected by the downstream automatic test software.
+- Write the templated workbook to `outputs/<model>_Test0001_tcsd.xlsx`, or the next versioned filename if that output already exists.
 - Preserve a generation JSON spec, simulation-result JSON, and a short validation report alongside the workbook.
 
 Ask the user only when required input files or runtime dependencies are missing, or when the model cannot be loaded after applying the bundled support package.
@@ -35,7 +36,7 @@ Ask the user only when required input files or runtime dependencies are missing,
 - Use Simulink Agentic Toolkit first for model understanding: `model_overview`, `model_read`, `model_query_params`, `model_resolve_params`, and `evaluate_matlab_code`.
 - If direct MATLAB MCP tools are unavailable, run `scripts/satk_eval.py` with a MATLAB code file.
 - Copy `assets/support-package` into the working folder before loading the model unless the project already has equivalent Cornex/ITK dependencies.
-- Use `assets/templates/tcsd_template.xlsx` as the TCSD style template.
+- Use `assets/templates/tcsd_template.xlsx` as the required TCSD workbook template. Preserve its `TCSD` sheet, columns, row conventions, freeze pane, styles, comments/status options, and workbook structure so the downstream automatic test software can import it.
 - Fill expected outputs only for top-level Outport signals. Never put model-internal/local signals in `Action` as `expValue(...)`.
 - TCSD expectation syntax is `outSignal = expValue(var1, duration, offset);`. `var1` is a numeric expected value or an input-signal name string, `duration` is the expected-value check duration, and `offset` is the offset relative to the current time interval. Extra arguments are time-window controls, not numeric tolerance.
 - For simulation-sampled values, write `expValue(value)` by default. Use `expValue(value,duration,offset)` only when deliberately checking a stable value over that time window.
@@ -80,8 +81,9 @@ Ask the user only when required input files or runtime dependencies are missing,
    - Add only top-level output expectations.
 
 4. **Build the Excel**
-   - Either edit the template directly or create a JSON spec and run `scripts/build_tcsd_from_json.py`.
-   - Keep sheet name `TCSD`, columns, freeze pane, and reviewed status consistent with the template.
+   - Start from `assets/templates/tcsd_template.xlsx`; do not create a fresh workbook from scratch.
+   - Either edit a copy of the template directly or create a JSON spec and run `scripts/build_tcsd_from_json.py --template <skill_dir>/assets/templates/tcsd_template.xlsx`.
+   - Keep sheet name `TCSD`, columns, row 2 `TestGroup`, freeze pane, comments/status options, cell styles, and reviewed status consistent with the template.
 
 5. **Backfill expected outputs from simulation**
    - Extract actions with `scripts/extract_tcsd_cases.py`.

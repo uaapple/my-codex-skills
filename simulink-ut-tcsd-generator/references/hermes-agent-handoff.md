@@ -24,6 +24,7 @@ The agent must automatically:
 - write expected values only for top-level Outports;
 - simulate when possible and backfill stable top-level outputs from simulation;
 - omit hold-style expectations for ramping or continuously changing outputs;
+- build the workbook from the bundled canonical template `assets/templates/tcsd_template.xlsx`;
 - save `outputs/<model>_Test0001_tcsd.xlsx`, or the next versioned filename if it exists;
 - keep the JSON case spec, simulation-result JSON, and a short validation report with the workbook.
 
@@ -80,7 +81,7 @@ cp -R <skill_dir>/assets/support-package/. <model_workdir>/
 5. Derive root Inports and Outports from the model, including port order, data type, and dimensions. Do not guess.
 6. Inspect hierarchy and decision-producing blocks: Switch, RelationalOperator, MinMax, MultiPortSwitch, Saturate, Lookup, Safe_Divide, Delay, Latch, StopWatch, LowPass, GradientLimiter.
 7. Build a coverage-obligation checklist before writing TCSD rows.
-8. Create a JSON spec or workbook draft.
+8. Create a JSON spec or workbook draft, then build the final workbook from `assets/templates/tcsd_template.xlsx`.
 9. Extract TCSD actions to simulation JSON.
 10. Run simulation and export results.
 11. Backfill only stable top-level output expectations.
@@ -89,9 +90,11 @@ cp -R <skill_dir>/assets/support-package/. <model_workdir>/
 
 ## TCSD Style Learned From ACCtl/PwrLimEng
 
+- The bundled `assets/templates/tcsd_template.xlsx` is the canonical Excel input form for the downstream automatic test software. Do not create a blank workbook from scratch.
 - One `TCSD` sheet.
 - Row 2 is `TestGroup`.
 - Test rows use `Type = Test` and `Work Status = reviewed`.
+- Preserve the template's columns, freeze pane, cell styles, comments/status options, and workbook structure.
 - `Test Case Description` should include a method, such as requirement analysis, boundary value, equivalence class, or coverage feedback.
 - `Initialization` assigns all root inputs required for deterministic startup, plus explicit parameter overrides as `p ParamName = value;`.
 - `Action` uses relative time markers like `[+100ms]` or `[+0.2s]`.

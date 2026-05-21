@@ -1,5 +1,15 @@
 # TCSD Rules
 
+## Required Template
+
+The skill bundles the canonical Excel template at:
+
+```text
+assets/templates/tcsd_template.xlsx
+```
+
+This workbook is the downstream automatic test software's expected TCSD input form. Always generate final cases by copying/editing this template or by running `scripts/build_tcsd_from_json.py --template <skill_dir>/assets/templates/tcsd_template.xlsx`. Do not create a new blank workbook with similar-looking columns.
+
 ## Workbook Shape
 
 - Sheet: `TCSD`.
@@ -15,7 +25,7 @@
   - `Report Links`
 - Row 2 is a `TestGroup`.
 - Test rows use `Type = Test` and `Work Status = reviewed`.
-- Preserve template style and freeze pane.
+- Preserve template style, comments/status options, row conventions, and freeze pane.
 
 ## Initialization
 
