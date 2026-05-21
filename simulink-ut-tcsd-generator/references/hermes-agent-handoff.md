@@ -123,7 +123,7 @@ Treat every decision outcome as an obligation:
 - `MinMax`: every input port should win at least once. Avoid equal/tie values because coverage attribution can be ambiguous.
 - `MultiPortSwitch`: cover every valid selector value and default/otherwise only if the model safely accepts that selector.
 - `Saturate`: cover below-low, pass-through, and above-high regions. If calibration/lookup values can never exceed a limit, record the remaining region as unreachable rather than unsafe table manipulation.
-- `RelationalOperator`/`Switch`: cover both true and false.
+- `RelationalOperator`/`Switch`: cover both true and false by driving the actual trigger signal across the block criterion. For sign criteria such as `< 0`, `<= 0`, `~= 0`, or `u2 ~= 0`, include negative, zero, and positive/equality-side values as applicable.
 - `Safe_Divide`: denominator zero/protected path and normal nonzero path.
 - `Lookup_n-D`: use low/mid/high and edge breakpoints that influence downstream decisions.
 - `LowPass`/filter/GradientLimiter upstream of a selector: use Initialization, longer hold time, or explicit scalar parameter override so the intended selector/result actually settles.
@@ -175,7 +175,7 @@ Important misses and fixes:
 - For `B02_ISGPwrEff`, setting `icisg_uAct` to 400 or 450 is not sufficient evidence that selector `*,4` was reached. Probe the selector after LowPass/lookup, or force a settled high-voltage selector with Initialization/parameter override.
 - `B02_ISGPwrEff` `Saturation1` must cover below-low, pass-through, and above-high pre-saturation values. If the MAT lookup/calibration tables keep values within `[0.1, 1]`, document low/high saturation branches as unreachable rather than using unsafe table edits.
 - AWD and non-AWD efficiency paths can have separate MultiPortSwitch/Saturate blocks; cover high-voltage selector regions in both when present.
-- In `B04_ISGPwrEffAWD`, the final Switch true branch requires `icisg_tqAct < 0`. AWD mode and high voltage alone usually exercise the false branch only.
+- In `B04_ISGPwrEffAWD`, the final Switch true branch requires `icisg_tqAct < 0`. AWD mode, high voltage, or `icisg_tqAct > 0` only exercises the false branch; include a negative `icisg_tqAct` step and confirm the logical trigger is true.
 - `B03_ISGLimTq` final output Min/Max blocks need tests where each candidate wins: input torque limit, power-derived limit, zero override/protection, startup/temperature limit.
 - For `B03_ISGLimTq`, final candidate coverage must be checked by probing the candidate inputs of the final Max/Min blocks. Reducing charge/discharge power or disabling ramping can still leave a different candidate winning.
 - For final Min/Max candidate coverage, use explicit `p ...RampEna_C = 0` when ramp limiters otherwise prevent the intended candidate from becoming selected within the test interval. Keep separate tests for GradientLimiter behavior.

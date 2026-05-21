@@ -22,6 +22,7 @@ For every item, write one of: `covered by TC_xxx`, `needs supplemental test`, or
 
 - Make one condition dominate at a time. For `MinMax`, set a clear margin so the intended port wins; avoid equal values because coverage tools may attribute ties unexpectedly.
 - For `MultiPortSwitch`, derive selector values from the actual block and upstream logic. Do not assume a model-wide enum is valid for every switch.
+- For `Switch` and `RelationalOperator`, read the block criterion/threshold first, then choose root input values on both sides of that exact condition. For sign-based conditions, use negative, zero, and positive values rather than only "normal positive" values.
 - When a selector is produced by voltage/current/speed filtering or lookup logic, hold the source input long enough for the selector to settle, or put the desired source value in Initialization.
 - For Saturate, use values comfortably outside limits, not just exact boundaries.
 - If a value causes simulation to stop because the selector is invalid, do not keep it as a normal unit-test case. Cover the default branch only when the block and model allow that selector safely.
@@ -66,7 +67,7 @@ The later PwrLimEng_Test0002 feedback added a stronger lesson: coverage intent w
 - In `B01_PredSpd`, cover negative `icisg_nAct` or a sufficiently strong decreasing speed transition before the `Abs`, and separately confirm the `Max` constant-zero input wins. A mild speed decrease may still leave the filtered acceleration path above zero.
 - In `B02_ISGPwrEff`, selector `*,4` for the `MultiPortSwitch` is not guaranteed by setting `icisg_uAct` to 400/450. Probe the selector after the voltage LowPass/lookup path, or initialize/override the filter so the selector actually becomes port 4.
 - In `B02_ISGPwrEff`, `Saturation1` needs explicit pre-saturation values below 0.1 and above 1.0. If normal lookup/calibration data keeps both inputs inside `[0.1, 1]`, document those branches as unreachable rather than claiming them covered.
-- In `B04_ISGPwrEffAWD`, the final Switch true branch requires `icisg_tqAct < 0`; AWD mode alone usually covers only the false branch.
+- In `B04_ISGPwrEffAWD`, the final Switch true branch requires `icisg_tqAct < 0`; AWD mode, high voltage, or `icisg_tqAct > 0` usually covers only the false branch. A repair workbook must include at least one negative `icisg_tqAct` step and should also include zero/positive values to prove both sides of the criterion.
 - In `B03_ISGLimTq`, final `PwrLimEng_tqISGMin` Max and `PwrLimEng_tqISGMax` Min candidate coverage must be verified by probing candidate inputs. Cases that reduce charge/discharge power or disable ramping may still leave the wrong candidate selected.
 - For a PwrLimEng coverage-repair pass, prefer producing a new version such as `PwrLimEng_Test0003_tcsd.xlsx`, with a short report mapping each Word/coverage feedback item to `confirmed covered`, `still uncovered`, or `unreachable`.
 
