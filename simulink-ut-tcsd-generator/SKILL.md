@@ -43,6 +43,8 @@ Ask the user only when required input files or runtime dependencies are missing,
 - Generate tests for coverage first: enable/disable branches, threshold sides, limiters, lookup-table regions, delay/latch behavior, divide-by-zero protection, and mode switches.
 - Treat decision outcomes as explicit coverage obligations. For `MinMax`, make each input become the selected output at least once. For `MultiPortSwitch`, cover every valid selector value and the default/otherwise branch when present. For `Saturate`, cover below-low, pass-through, and above-high regions.
 - For filtered selector or gradient-limited logic, use Initialization, long enough hold time, or documented scalar parameter overrides to make the intended outcome actually settle before expecting coverage.
+- A TCSD comment or Test description is not coverage evidence. After coverage feedback names a missing outcome, treat it as unresolved until a rerun coverage report or a targeted simulation probe shows the intended block input, selector, or branch actually occurred.
+- When repairing misses, probe intermediate decision inputs if needed for stimulus design, but never write those internal signals as TCSD `expValue(...)` expectations.
 - Do not stop after one static draft when coverage evidence is available. Use coverage reports, screenshots, or simulation probes to add supplemental tests for uncovered decision outcomes, then rebuild/backfill the workbook.
 - When regenerating after coverage feedback, create a versioned workbook/output JSON rather than overwriting the last reviewed workbook unless the user explicitly asks for overwrite.
 - Preserve user files. Do not overwrite the source `.slx` or `.mat`; write outputs under `outputs/`.
@@ -73,6 +75,7 @@ Ask the user only when required input files or runtime dependencies are missing,
    - Use explicit time units (`s`, `ms`, etc.), terminate executable statements with English semicolons, and write comments with `//`.
    - Describe input/output meanings or condition changes in `Action` comments when they clarify the coverage target.
    - Add targeted supplemental Tests for uncovered `MinMax`, `MultiPortSwitch`, `Saturate`, relational, and selector outcomes before optimizing for compactness.
+   - For each supplemental Test, record the exact missing decision outcome it targets. Do not count it as closed merely because the stimulus appears plausible.
    - Keep coverage-only stimuli even when their outputs are dynamic and therefore have few expected-output lines.
    - Add only top-level output expectations.
 
@@ -90,7 +93,7 @@ Ask the user only when required input files or runtime dependencies are missing,
    - Run `unzip -t` on the output workbook.
    - Inspect the TCSD sheet with a spreadsheet library or artifact-tool.
    - Check there are no internal-signal expectations and no unsupported input values exposed by simulation.
-   - If model coverage evidence is available, verify decision coverage first. Add tests or record an explicit unreachable/invalid-selector reason for any remaining uncovered outcome.
+   - If model coverage evidence is available, verify decision coverage first. For each feedback item, confirm the outcome with a coverage rerun or a targeted probe of the decision block inputs/selectors. Add tests or record an explicit unreachable/invalid-selector reason for any remaining uncovered outcome.
 
 ## References
 

@@ -125,6 +125,7 @@ Treat every decision outcome as an obligation:
 - `Lookup_n-D`: use low/mid/high and edge breakpoints that influence downstream decisions.
 - `LowPass`/filter/GradientLimiter upstream of a selector: use Initialization, longer hold time, or explicit scalar parameter override so the intended selector/result actually settles.
 - Delay/latch/StopWatch: use multi-step action sequences for initial, set, hold, reset, and timeout states.
+- Coverage closure requires evidence. Do not mark a feedback item fixed only because a Test comment says it targets that outcome; confirm with a coverage rerun or a focused probe of the relevant internal block inputs/selectors.
 
 ## Static SLX Inspection
 
@@ -164,10 +165,16 @@ Relevant root outputs for expected values:
 Important misses and fixes:
 
 - The first draft covered execution well but decision coverage was low. The feedback screenshot showed condition coverage around 90.9%, decision coverage around 69.3%, and execution 100%.
+- A later `PwrLimEng_Test0002` repair improved coverage but still missed outcomes because several Tests described the desired branch without making the internal decision input actually reach it. For future repair passes, create `PwrLimEng_Test0003_tcsd.xlsx` or another versioned workbook and verify each feedback item with coverage/probes.
 - A `Max` in `A02_ISGMaxMinTq/B01_PredSpd` had only input 1 winning. Add a speed-decrease case so derivative/filter output is negative and the zero/other input wins, then a speed-increase step to cover the other side.
+- `Abs` blocks need source-sign coverage, not just magnitude coverage. In `A01_EngMaxTq`, a normal negative `icisg_tqISGMin` covers only the negative-source side; add a positive-source case if the coverage report flags the other side. In `B01_PredSpd`/efficiency paths, use negative speed or a strong transition before the `Abs` when the source sign is what matters.
 - `B02_ISGPwrEff` `MultiPortSwitch` covered selector `0/1/2` but missed `3` and `4`. Use 380V/400V in Initialization or shorten `PwrLimEng_tiISGVoltFilt_C`; a short 0.2s step with the original LowPass may not settle enough.
+- For `B02_ISGPwrEff`, setting `icisg_uAct` to 400 or 450 is not sufficient evidence that selector `*,4` was reached. Probe the selector after LowPass/lookup, or force a settled high-voltage selector with Initialization/parameter override.
+- `B02_ISGPwrEff` `Saturation1` must cover below-low, pass-through, and above-high pre-saturation values. If the MAT lookup/calibration tables keep values within `[0.1, 1]`, document low/high saturation branches as unreachable rather than using unsafe table edits.
 - AWD and non-AWD efficiency paths can have separate MultiPortSwitch/Saturate blocks; cover high-voltage selector regions in both when present.
+- In `B04_ISGPwrEffAWD`, the final Switch true branch requires `icisg_tqAct < 0`. AWD mode and high voltage alone usually exercise the false branch only.
 - `B03_ISGLimTq` final output Min/Max blocks need tests where each candidate wins: input torque limit, power-derived limit, zero override/protection, startup/temperature limit.
+- For `B03_ISGLimTq`, final candidate coverage must be checked by probing the candidate inputs of the final Max/Min blocks. Reducing charge/discharge power or disabling ramping can still leave a different candidate winning.
 - For final Min/Max candidate coverage, use explicit `p ...RampEna_C = 0` when ramp limiters otherwise prevent the intended candidate from becoming selected within the test interval. Keep separate tests for GradientLimiter behavior.
 - Do not backfill hold-window expected values for ramped torque outputs. The instant value can be right while the later hold check fails.
 - When regenerating after coverage feedback, write a versioned workbook such as `PwrLimEng_Test0002_tcsd.xlsx` and preserve the previous workbook.
