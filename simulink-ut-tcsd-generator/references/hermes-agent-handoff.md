@@ -98,6 +98,8 @@ cp -R <skill_dir>/assets/support-package/. <model_workdir>/
 - `Test Case Description` should include a method, such as requirement analysis, boundary value, equivalence class, or coverage feedback.
 - `Initialization` assigns all root inputs required for deterministic startup, plus explicit parameter overrides as `p ParamName = value;`.
 - `Action` uses relative time markers like `[+100ms]` or `[+0.2s]`.
+- Vector root inputs are initialized element by element, for example `VectorSig 1=5000;`, not as `VectorSig = [5000 5000];`.
+- Every Test `Action` ends with a final relative delay marker such as `[+0.1s]` after the last assignment or expectation.
 - Executable lines end with English semicolons.
 - Comments use `//`.
 - Keep comments practical: name the branch/selector/condition change being targeted.
@@ -153,7 +155,8 @@ Use static inspection to find SIDs, constants, block parameters, `DataPortOrder`
   - `scripts/backfill_expected_outputs.py`
   - `scripts/setup_ut_support.m`
   - `scripts/satk_eval.py`
-- The generic extractor supports scalar numeric values and bracketed numeric vectors such as `[5000 5000 5000 5000]`.
+- The generic builder expands bracketed vector assignments into TCSD element assignments, and the extractor can read element syntax such as `VectorSig 1=5000;`.
+- Bracketed vectors may be convenient inside intermediate JSON/spec drafts, but the final TCSD workbook for the current target toolchain should use element assignments.
 - The generic simulation script handles vector root inputs/outputs; backfill should still usually allow only scalar top-level outputs unless vector TCSD macro mapping is confirmed.
 - `openpyxl` is required for the Python workbook scripts. If system Python lacks it, use the runtime Python available in the agent environment or install/use an environment with `openpyxl`.
 - Write model-specific helper scripts only when the generic scripts cannot reasonably support a model-specific constraint. If such a script encodes a working MATLAB setup, parameterize paths instead of hardcoding one workbook forever.
@@ -201,9 +204,10 @@ HvGrid is a larger integration-style model. The main lesson is to build a strong
   - energy/odometer reset edges;
   - front/rear motor bypass and stall heating;
   - relay open/close and heating delay paths.
-- HvGrid has vector root inputs such as `EMTqFil_dtqIncGrdt` and `EMTqFil_dtqDecGrdt`; express them as bracketed numeric vectors in TCSD initialization/action when needed.
+- HvGrid has vector root inputs such as `EMTqFil_dtqIncGrdt` and `EMTqFil_dtqDecGrdt`; express them element by element in final TCSD initialization/action, for example `EMTqFil_dtqIncGrdt 1=5000;` through `EMTqFil_dtqIncGrdt 4=5000;`.
 - HvGrid has vector root outputs such as `HvGrid_pwrAvl`. Do not auto-backfill vector outputs unless the target TCSD/MQT macro syntax and element mapping are known. Build and pass a scalar-output allowlist to the backfill script.
 - For latch/hysteresis/delay, use multi-step sequences that cross low/high thresholds and then return. Static one-shot initialization is rarely enough.
+- Each HvGrid Test should include a final `[+0.1s]` or equivalent delay at the end of `Action`; otherwise the downstream runner may not execute/sample after the last expected-value line.
 
 ## Validation Checklist Before Delivery
 
@@ -217,6 +221,8 @@ HvGrid is a larger integration-style model. The main lesson is to build a strong
 - No internal/local/MIL signal names appear as expected outputs.
 - No three-argument `expValue` is present unless it is intentionally checking a stable window.
 - Vector outputs are omitted unless explicitly supported.
+- Vector root inputs are not written as whole-vector bracket assignments in the final workbook.
+- Every Test `Action` has a final relative delay marker such as `[+0.1s]`.
 - Selector values do not make simulation stop.
 - Coverage feedback, if available, has been translated into supplemental Tests or justified as unreachable/invalid.
 

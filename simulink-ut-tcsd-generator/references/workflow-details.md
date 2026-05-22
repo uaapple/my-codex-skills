@@ -111,6 +111,10 @@ Do not let expected-output stability rules reduce stimulus coverage. It is accep
 
 For larger modules such as HvGrid, many root outputs may be vectors or unsupported by the target TCSD import. Build a root-output allowlist from model metadata and backfill scalar top-level outputs first. Validate vector outputs are absent unless the vector macro syntax and element mapping are confirmed.
 
+For vector root inputs in the final TCSD workbook, expand values element by element, for example `EMTqFil_dtqIncGrdt 1=5000;` through `EMTqFil_dtqIncGrdt 4=5000;`. Do not leave whole-vector assignments such as `EMTqFil_dtqIncGrdt = [5000 5000 5000 5000];` unless the downstream importer has been explicitly confirmed to accept them.
+
+Every Test `Action` should end with a final relative delay marker such as `[+0.1s]` so the runner has a short interval after the last assignment or expectation.
+
 ### Parameter Overrides for Coverage
 
 Scalar calibration overrides are useful when model dynamics hide a decision outcome during short unit-test-style steps:

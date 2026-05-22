@@ -39,6 +39,8 @@ Ask the user only when required input files or runtime dependencies are missing,
 - Do not pipe `.slx`/zip/XML output directly into interpreters such as `python3 -c`, `perl`, `ruby`, or `node -e`. If static XML inspection is needed, use `scripts/inspect_slx_xml.py MODEL.slx --pattern REGEX` or a checked-in file-reading script.
 - Copy `assets/support-package` into the working folder before loading the model unless the project already has equivalent Cornex/ITK dependencies.
 - Use `assets/templates/tcsd_template.xlsx` as the required TCSD workbook template. Preserve its `TCSD` sheet, columns, row conventions, freeze pane, styles, comments/status options, and workbook structure so the downstream automatic test software can import it.
+- Write vector root-input assignments element by element in TCSD, for example `Sig 1=5000;`, `Sig 2=5000;`. Do not write whole-vector input assignments like `Sig = [5000 5000];` unless the target importer has been explicitly confirmed to support them.
+- End every Test `Action` with a final relative delay marker such as `[+0.1s]` so the target has a run/sampling interval after the last assignment or expectation. Do not let a Test end on an input assignment or `expValue(...)` line.
 - Fill expected outputs only for top-level Outport signals. Never put model-internal/local signals in `Action` as `expValue(...)`.
 - TCSD expectation syntax is `outSignal = expValue(var1, duration, offset);`. `var1` is a numeric expected value or an input-signal name string, `duration` is the expected-value check duration, and `offset` is the offset relative to the current time interval. Extra arguments are time-window controls, not numeric tolerance.
 - For simulation-sampled values, write `expValue(value)` by default. Use `expValue(value,duration,offset)` only when deliberately checking a stable value over that time window.
@@ -78,6 +80,8 @@ Ask the user only when required input files or runtime dependencies are missing,
    - In `Test Case Description`, state the test method such as boundary value, equivalence class, requirement analysis, or coverage feedback.
    - In `Initialization`, assign all root inputs and any needed parameter overrides (`p Param = value;`).
    - In `Action`, step inputs over time with `[+100ms]`, `[+0.2s]`, etc.
+   - Expand vector root inputs into element assignments, for example `EMTqFil_dtqIncGrdt 1=5000;` through `EMTqFil_dtqIncGrdt 4=5000;`.
+   - Add a final `[+0.1s]` or equivalent final delay at the end of every Test `Action`.
    - Use explicit time units (`s`, `ms`, etc.), terminate executable statements with English semicolons, and write comments with `//`.
    - Describe input/output meanings or condition changes in `Action` comments when they clarify the coverage target.
    - Add targeted supplemental Tests for uncovered `MinMax`, `MultiPortSwitch`, `Saturate`, relational, and selector outcomes before optimizing for compactness.

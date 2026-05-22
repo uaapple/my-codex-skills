@@ -16,6 +16,7 @@ NUMBER = r"[-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
 VALUE = rf"({NUMBER}|\[\s*{NUMBER}(?:[\s,]+{NUMBER})*\s*\])"
 PARAM_RE = re.compile(rf"^\s*p\s+([A-Za-z_]\w*)\s*=\s*{VALUE}\s*;")
 ASSIGN_RE = re.compile(rf"^\s*([A-Za-z_]\w*)\s*=\s*{VALUE}\s*;")
+INDEX_ASSIGN_RE = re.compile(rf"^\s*([A-Za-z_]\w*)\s+([1-9]\d*)\s*=\s*({NUMBER})\s*;")
 
 
 def parse_value(text: str) -> float | list[float]:
@@ -24,6 +25,17 @@ def parse_value(text: str) -> float | list[float]:
         inner = text.strip("[]")
         return [float(item) for item in re.split(r"[\s,]+", inner.strip()) if item]
     return float(text)
+
+
+def set_indexed_value(inputs: dict[str, object], name: str, index_text: str, value_text: str) -> None:
+    index = int(index_text)
+    value = float(value_text)
+    current = inputs.get(name)
+    values = list(current) if isinstance(current, list) else []
+    while len(values) < index:
+        values.append(0.0)
+    values[index - 1] = value
+    inputs[name] = values
 
 
 def parse_assignments(text: str, input_names: set[str]) -> tuple[dict[str, object], dict[str, object]]:
@@ -36,6 +48,10 @@ def parse_assignments(text: str, input_names: set[str]) -> tuple[dict[str, objec
         param_match = PARAM_RE.match(line)
         if param_match:
             params[param_match.group(1)] = parse_value(param_match.group(2))
+            continue
+        index_match = INDEX_ASSIGN_RE.match(line)
+        if index_match and index_match.group(1) in input_names:
+            set_indexed_value(inputs, index_match.group(1), index_match.group(2), index_match.group(3))
             continue
         assign_match = ASSIGN_RE.match(line)
         if assign_match and assign_match.group(1) in input_names:

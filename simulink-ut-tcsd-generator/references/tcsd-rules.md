@@ -40,6 +40,17 @@ p ParamName_C = 1;
 
 Use `p Param = value;` for parameter overrides.
 
+For vector root inputs, use element assignments unless the target importer is explicitly confirmed to support whole-vector syntax:
+
+```text
+VectorSig 1=5000;
+VectorSig 2=5000;
+VectorSig 3=5000;
+VectorSig 4=5000;
+```
+
+Do not write `VectorSig = [5000 5000 5000 5000];` in the final TCSD workbook for the current target toolchain.
+
 ## Action
 
 Use time steps and simple assignments:
@@ -60,6 +71,7 @@ Rules from the UT guidance:
 - A Test can span multiple Excel rows as long as a new `TestID` is not started in column A, but prefer one complete Test per row unless the template forces wrapping.
 - Add comments in `Action` to describe input/output signal meaning or condition changes when that helps review.
 - Put the test method in `Test Case Description`, for example boundary value, equivalence class, or requirement analysis.
+- End every Test `Action` with a final relative delay marker, for example `[+0.1s]`, after the last assignment or `expValue(...)` line.
 
 ## Expected Outputs
 
@@ -113,6 +125,8 @@ Before finishing, check:
 - Every `expValue(...)` line uses a root Outport name.
 - No `expValue(value,duration,offset)` is used as a numeric tolerance. If the 3-argument form is present, the output must be stable over that offset/duration window.
 - No internal signals, local logging names, or `out_mil_ec` names are present.
+- No root-input assignment uses whole-vector bracket syntax unless importer support was explicitly confirmed.
+- Every Test `Action` ends with a final relative delay marker such as `[+0.1s]`.
 - Selector values are in valid model ranges.
 - Uncovered `MinMax`, `MultiPortSwitch`, and `Saturate` outcomes are either covered by supplemental tests or explicitly justified as unreachable/invalid for simulation.
 - Workbook opens and imports.

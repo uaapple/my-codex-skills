@@ -77,6 +77,8 @@ The HvGrid run exposed issues common to larger integration-style modules:
 
 - Start from a complete nominal input baseline. Large modules have many unrelated gates; missing one can prevent the target branch from becoming reachable.
 - Use model metadata to split scalar and vector root outputs. Backfill scalar top-level outputs first and omit vector outputs unless the TCSD macro/index mapping is known.
+- For vector root inputs, keep simulation-friendly arrays only in intermediate specs if helpful; expand them to element assignments in the final TCSD workbook.
 - Cover feature clusters as separate Tests: high-voltage ready path, zero-voltage Safe_Divide, battery charge/discharge limits, V2L/V2In/DC-charge modes, ECC priority/SOC hysteresis, startup/relay delay, energy reset edges, and motor bypass/stall heating.
 - For latch, hysteresis, and delay logic, use multi-step actions that cross low/high thresholds and then return, rather than only one static initialization.
 - For large modules, use JSON specs plus generated Excel instead of hand-editing. Keep a scalar-output allowlist and a validation script that rejects internal, local, and vector expectations.
+- Reject generated rows whose `Action` ends on an assignment or `expValue(...)`; append a short final delay such as `[+0.1s]`.

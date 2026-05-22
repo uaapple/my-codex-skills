@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from copy import copy
 from pathlib import Path
 
@@ -22,6 +23,35 @@ HEADERS = [
     "Work Status",
     "Report Links",
 ]
+
+VECTOR_ASSIGN_RE = re.compile(r"^(\s*)([A-Za-z_]\w*)\s*=\s*\[([^\]]+)\]\s*;\s*$")
+FINAL_DELAY_RE = re.compile(r"^\[\+\s*[0-9.]+\s*(ms|s)\s*\](?:\s*//.*)?$", re.IGNORECASE)
+
+
+def expand_vector_assignments(text: str) -> str:
+    """Convert whole-vector assignments to TCSD element assignments."""
+    lines: list[str] = []
+    for line in (text or "").splitlines():
+        match = VECTOR_ASSIGN_RE.match(line)
+        if not match:
+            lines.append(line)
+            continue
+        indent, name, values_text = match.groups()
+        values = [value for value in re.split(r"[\s,]+", values_text.strip()) if value]
+        for index, value in enumerate(values, start=1):
+            lines.append(f"{indent}{name} {index}={value};")
+    return "\n".join(lines)
+
+
+def ensure_final_delay(action: str, delay: str = "[+0.1s]") -> str:
+    """Ensure each Test has a final run/sampling delay marker."""
+    lines = (action or "").splitlines()
+    while lines and not lines[-1].strip():
+        lines.pop()
+    if lines and FINAL_DELAY_RE.match(lines[-1].strip()):
+        return "\n".join(lines)
+    lines.append(delay)
+    return "\n".join(lines)
 
 
 def copy_row_style(ws, src_row: int, dst_row: int) -> None:
@@ -74,8 +104,8 @@ def main() -> int:
         ws.cell(row, 3).value = "Test"
         ws.cell(row, 4).value = test.get("requirement_id")
         ws.cell(row, 5).value = test.get("description", "")
-        ws.cell(row, 6).value = test.get("initialization", "")
-        ws.cell(row, 7).value = test.get("action", "")
+        ws.cell(row, 6).value = expand_vector_assignments(test.get("initialization", ""))
+        ws.cell(row, 7).value = ensure_final_delay(expand_vector_assignments(test.get("action", "")))
         ws.cell(row, 8).value = test.get("work_status", "reviewed")
         ws.cell(row, 9).value = test.get("report_links")
         line_count = (ws.cell(row, 7).value or "").count("\n") + 1
