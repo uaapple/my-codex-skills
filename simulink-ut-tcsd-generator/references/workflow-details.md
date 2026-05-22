@@ -38,7 +38,7 @@ Collect:
 - Data types from `CornexCsc.Signal.DataType` where available.
 - Subsystem hierarchy.
 - Parameters from block masks, descriptions, `CornexCsc.Parameter.Value`, lookup tables, constants, and data dictionaries.
-- Decision-producing blocks and their required outcomes: Switch true/false, RelationalOperator true/false, each `MinMax` winning input, each `MultiPortSwitch` selector/default, each Saturate low/pass/high region.
+- Decision-producing blocks and their required outcomes: Switch true/false, RelationalOperator true/false, Logical Operator input truth vectors, each `MinMax` winning input, each `MultiPortSwitch` selector/default, each Saturate low/pass/high region.
 
 Do not assume `.mat` variables are valid until `CornexCsc.Signal` and `CornexCsc.Parameter` resolve to classes.
 
@@ -74,6 +74,7 @@ For each major subsystem, create one or more Test rows that cover:
 - For `MinMax` blocks, every input port must win at least once unless it is unreachable; equality/tie cases do not count as a reliable win.
 - For `MultiPortSwitch` blocks, cover every valid selector value and any default/otherwise branch. Derive selector legality per block, not from a similarly named enum elsewhere in the model.
 - For `Saturate` blocks, cover input below lower limit, inside limits, and above upper limit.
+- For `Logical Operator` AND/OR blocks, cover MC/DC-style vectors. OR needs all-false and single-true-per-input cases. AND needs all-true and single-false-per-input cases. Apply upstream NOT/inversion before deciding root input values.
 - Safe divide denominator zero and nonzero cases.
 - Delay, latch, stopwatch, and edge-detect transitions.
 - Gradient limiter/ramp behavior with enough time steps.

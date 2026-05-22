@@ -79,7 +79,7 @@ cp -R <skill_dir>/assets/support-package/. <model_workdir>/
 3. Place the user’s `<model>.slx` and `<model>.mat` in the same workdir.
 4. Load support paths, run `init_Global.m`, load the MAT, load `ITKLib.slx`, then load the model.
 5. Derive root Inports and Outports from the model, including port order, data type, and dimensions. Do not guess.
-6. Inspect hierarchy and decision-producing blocks: Switch, RelationalOperator, MinMax, MultiPortSwitch, Saturate, Lookup, Safe_Divide, Delay, Latch, StopWatch, LowPass, GradientLimiter.
+6. Inspect hierarchy and decision-producing blocks: Switch, RelationalOperator, Logical Operator, MinMax, MultiPortSwitch, Saturate, Lookup, Safe_Divide, Delay, Latch, StopWatch, LowPass, GradientLimiter.
 7. Build a coverage-obligation checklist before writing TCSD rows.
 8. Create a JSON spec or workbook draft, then build the final workbook from `assets/templates/tcsd_template.xlsx`.
 9. Extract TCSD actions to simulation JSON.
@@ -126,6 +126,7 @@ Treat every decision outcome as an obligation:
 - `MultiPortSwitch`: cover every valid selector value and default/otherwise only if the model safely accepts that selector.
 - `Saturate`: cover below-low, pass-through, and above-high regions by proving the pre-saturation input crosses the limits. If calibration/lookup values can never exceed a limit, record the remaining region as unreachable rather than unsafe table manipulation.
 - `RelationalOperator`/`Switch`: cover both true and false by driving the actual trigger signal across the block criterion. For sign criteria such as `< 0`, `<= 0`, `~= 0`, or `u2 ~= 0`, include negative, zero, and positive/equality-side values as applicable.
+- `Logical Operator`: cover every input port true and false and satisfy MC/DC. For N-input OR, use all inputs false plus one case for each single true input. For N-input AND, use all inputs true plus one case for each single false input. For chained logic or NOT-fed inputs, target the truth vector at the logical operator input ports.
 - `Safe_Divide`: denominator zero/protected path and normal nonzero path.
 - `Lookup_n-D`: use low/mid/high and edge breakpoints that influence downstream decisions.
 - `LowPass`/filter/GradientLimiter upstream of a selector: use Initialization, longer hold time, or explicit scalar parameter override so the intended selector/result actually settles.
@@ -209,6 +210,15 @@ HvGrid is a larger integration-style model. The main lesson is to build a strong
 - For latch/hysteresis/delay, use multi-step sequences that cross low/high thresholds and then return. Static one-shot initialization is rarely enough.
 - Each HvGrid Test should include a final `[+0.1s]` or equivalent delay at the end of `Action`; otherwise the downstream runner may not execute/sample after the last expected-value line.
 
+## HvCoorn Lessons
+
+HvCoorn feedback exposed a recurring logical-operator miss:
+
+- Relay-state OR logic, such as "one of several relay/battery states matches", needs an all-false baseline and single-true cases for every OR input port. Do not cover only the all-false or nominal state.
+- HVIL/status AND logic, especially nested AND chains with NOT-fed inputs, needs one satisfying baseline and one single-fault case per condition. Derive the required raw root-input value from the actual operator input polarity.
+- Coverage reports may label combined logic as `Includes N blocks` with `C1..Cn`. Treat each listed condition as an obligation and generate the `N+1` MC/DC pattern unless a condition is unreachable.
+- Probe logical-operator input ports or their immediate relational outputs when repairing coverage; the final mode/status output alone is not enough evidence.
+
 ## Validation Checklist Before Delivery
 
 - Workbook path is under `outputs/`.
@@ -224,6 +234,7 @@ HvGrid is a larger integration-style model. The main lesson is to build a strong
 - Vector root inputs are not written as whole-vector bracket assignments in the final workbook.
 - Every Test `Action` has a final relative delay marker such as `[+0.1s]`.
 - Selector values do not make simulation stop.
+- AND/OR `Logical Operator` blocks have MC/DC-style truth vectors, not only the nominal all-true/all-false case.
 - Coverage feedback, if available, has been translated into supplemental Tests or justified as unreachable/invalid.
 
 ## Readiness for Hermes

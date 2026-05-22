@@ -47,6 +47,7 @@ Ask the user only when required input files or runtime dependencies are missing,
 - Do not write hold-style expectations for outputs that keep changing before the next action step. Backfill only outputs that are stable across the following hold interval; omit ramping outputs from that Test unless deliberately generating dense per-sample staircase expectations.
 - Generate tests for coverage first: enable/disable branches, threshold sides, limiters, lookup-table regions, delay/latch behavior, divide-by-zero protection, and mode switches.
 - Treat decision outcomes as explicit coverage obligations. For `MinMax`, make each input become the selected output at least once. For `MultiPortSwitch`, cover every valid selector value and the default/otherwise branch when present. For `Saturate`, cover below-low, pass-through, and above-high regions.
+- Treat every `Logical Operator` block as an MC/DC obligation. For N-input OR, include an all-false case plus one case per input where only that input is true. For N-input AND, include an all-true case plus one case per input where only that input is false. Account for NOT/inverted upstream signals by targeting the truth value at the operator input, not just the raw root signal value.
 - For every `Saturate` block, identify the pre-saturation input signal and prove it is below the lower limit, inside range, and above the upper limit. Do not infer saturation coverage only from extreme root inputs or from the saturated output value. If the upstream lookup/calibration range cannot cross a limit with valid inputs, mark that outcome unreachable rather than forcing unsafe table edits.
 - For every `Abs` block, design coverage on the pre-Abs source signal: negative, zero, and positive values. Do not treat a positive `Abs` output as covering a positive source input.
 - For every `Switch` or `RelationalOperator`, inspect the actual trigger/criterion and drive the trigger signal to both sides of the condition. For sign-based criteria such as `< 0`, `<= 0`, `~= 0`, or `u2 ~= 0`, include explicit negative, zero, and positive/equality-side values as applicable; do not assume toggling an adjacent mode or selector covers the true branch.
@@ -84,7 +85,7 @@ Ask the user only when required input files or runtime dependencies are missing,
    - Add a final `[+0.1s]` or equivalent final delay at the end of every Test `Action`.
    - Use explicit time units (`s`, `ms`, etc.), terminate executable statements with English semicolons, and write comments with `//`.
    - Describe input/output meanings or condition changes in `Action` comments when they clarify the coverage target.
-   - Add targeted supplemental Tests for uncovered `MinMax`, `MultiPortSwitch`, `Saturate`, relational, and selector outcomes before optimizing for compactness.
+   - Add targeted supplemental Tests for uncovered `MinMax`, `MultiPortSwitch`, `Saturate`, `Logical Operator`, relational, and selector outcomes before optimizing for compactness.
    - For each supplemental Test, record the exact missing decision outcome it targets. Do not count it as closed merely because the stimulus appears plausible.
    - Keep coverage-only stimuli even when their outputs are dynamic and therefore have few expected-output lines.
    - Add only top-level output expectations.

@@ -7,6 +7,7 @@ Use this reference when designing or repairing TCSD cases for model coverage. Co
 Create a short checklist before writing the workbook:
 
 - `Switch` / relational logic: true and false outcomes.
+- `Logical Operator` AND/OR: each input condition true and false, plus MC/DC pairs where one input independently changes the output.
 - `MinMax`: each input port is the selected maximum/minimum at least once.
 - `MultiPortSwitch`: every valid selector value, plus default/otherwise branch when the block has one.
 - `Saturate`: below lower limit, pass-through region, above upper limit.
@@ -23,6 +24,9 @@ For every item, write one of: `covered by TC_xxx`, `needs supplemental test`, or
 - Make one condition dominate at a time. For `MinMax`, set a clear margin so the intended port wins; avoid equal values because coverage tools may attribute ties unexpectedly.
 - For `MultiPortSwitch`, derive selector values from the actual block and upstream logic. Do not assume a model-wide enum is valid for every switch.
 - For `Switch` and `RelationalOperator`, read the block criterion/threshold first, then choose root input values on both sides of that exact condition. For sign-based conditions, use negative, zero, and positive values rather than only "normal positive" values.
+- For an N-input OR, generate an all-false baseline to get false output, then N single-true cases such as `TFF`, `FTF`, `FFT` so each input independently drives true output.
+- For an N-input AND, generate an all-true baseline to get true output, then N single-false cases such as `FTT`, `TFT`, `TTF` so each input independently drives false output.
+- For nested or chained logical expressions, flatten the effective operator inputs from the coverage report (for example `C1..C9`) and design the same MC/DC pattern at the operator input values. If an upstream NOT feeds the operator, invert the raw stimulus so the operator input receives the intended true/false value.
 - When a selector is produced by voltage/current/speed filtering or lookup logic, hold the source input long enough for the selector to settle, or put the desired source value in Initialization.
 - For `Saturate`, identify `UpperLimit`, `LowerLimit`, and the pre-saturation input before writing stimuli. If that input is produced by lookup tables or calibration arithmetic, inspect the MAT/table min/max over valid input ranges first. Design root inputs or safe explicit parameter overrides that make the pre-saturation value lower than the lower limit, inside range, and higher than the upper limit; exact boundary values usually do not close both decisions.
 - If a value causes simulation to stop because the selector is invalid, do not keep it as a normal unit-test case. Cover the default branch only when the block and model allow that selector safely.
@@ -48,6 +52,7 @@ Useful probes for closure, while still keeping TCSD expectations top-level only:
 - `MultiPortSwitch`: log the integer selector at the block input. High source values such as voltage or mode commands do not prove the selector reached the intended port when a filter, lookup, or quantizer is upstream.
 - `Saturate`: log the pre-saturation value and confirm it is below low, inside range, and above high. Do not claim closure from the saturated output alone. If valid MAT/calibration data keeps the pre-saturation value inside the limits, record the low/high outcomes as unreachable instead of inventing unsafe table edits.
 - `Switch` / relational logic: log the logical trigger value; for sign-based switches, deliberately cover both positive and negative root inputs.
+- `Logical Operator`: log each operator input port and confirm the intended truth vector occurred, not just the final output. OR needs all-false and single-true vectors; AND needs all-true and single-false vectors.
 - Filtered or ramp-limited paths: use longer hold time, Initialization, or explicit parameter overrides, then confirm the downstream decision saw the settled value.
 
 ## PwrLimEng Feedback Pattern
