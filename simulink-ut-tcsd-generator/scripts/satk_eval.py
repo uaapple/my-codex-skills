@@ -4,14 +4,40 @@
 from __future__ import annotations
 
 import json
+import os
+import platform
 import subprocess
 import sys
+import tempfile
 import time
 from pathlib import Path
 
 
-SERVER = Path("/Users/guanzhengyang/.matlab/agentic-toolkits/bin/matlab-mcp-core-server")
-EXTENSION = Path("/Users/guanzhengyang/.matlab/agentic-toolkits/simulink/tools/tools.json")
+def executable_name(name: str) -> str:
+    return f"{name}.exe" if platform.system() == "Windows" else name
+
+
+def default_log_folder() -> str:
+    if platform.system() == "Windows":
+        return r"C:\Temp\matlab-mcp-core-server-codex"
+    if platform.system() == "Darwin":
+        return "/private/tmp/matlab-mcp-core-server-codex"
+    return str(Path(tempfile.gettempdir()) / "matlab-mcp-core-server-codex")
+
+
+DEFAULT_SERVER = (
+    Path(os.environ["SATK_MCP_SERVER"])
+    if os.environ.get("SATK_MCP_SERVER")
+    else Path.home() / ".matlab" / "agentic-toolkits" / "bin" / executable_name("matlab-mcp-core-server")
+)
+DEFAULT_EXTENSION = (
+    Path(os.environ["SATK_MCP_EXTENSION"])
+    if os.environ.get("SATK_MCP_EXTENSION")
+    else Path.home() / ".matlab" / "agentic-toolkits" / "simulink" / "tools" / "tools.json"
+)
+SESSION_MODE = os.environ.get("SATK_MATLAB_SESSION_MODE", "existing")
+MATLAB_ROOT = os.environ.get("SATK_MATLAB_ROOT", "")
+LOG_FOLDER = Path(os.environ.get("SATK_MCP_LOG_FOLDER", default_log_folder()))
 
 
 def send(proc: subprocess.Popen[str], msg: dict) -> None:
@@ -60,13 +86,26 @@ def main() -> int:
         print("usage: satk_eval.py MATLAB_CODE_FILE", file=sys.stderr)
         return 2
 
+    if not DEFAULT_SERVER.exists():
+        print(f"SATK MCP server not found: {DEFAULT_SERVER}", file=sys.stderr)
+        return 1
+    if not DEFAULT_EXTENSION.exists():
+        print(f"SATK MCP extension file not found: {DEFAULT_EXTENSION}", file=sys.stderr)
+        return 1
+
     code = Path(sys.argv[1]).read_text(encoding="utf-8")
+    LOG_FOLDER.mkdir(parents=True, exist_ok=True)
+    command = [
+        str(DEFAULT_SERVER),
+        f"--matlab-session-mode={SESSION_MODE}",
+        f"--log-folder={LOG_FOLDER}",
+        f"--extension-file={DEFAULT_EXTENSION}",
+    ]
+    if SESSION_MODE != "existing" and MATLAB_ROOT:
+        command.append(f"--matlab-root={MATLAB_ROOT}")
+
     proc = subprocess.Popen(
-        [
-            str(SERVER),
-            "--matlab-session-mode=existing",
-            f"--extension-file={EXTENSION}",
-        ],
+        command,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

@@ -2,6 +2,14 @@
 
 ## SATK Loading Pattern
 
+For production/Hermes runs, keep SATK startup deterministic before loading the model:
+
+- Use `scripts/satk_eval.py MATLAB_CODE_FILE` as the fallback MCP entrypoint when direct MCP tools are not available.
+- Run the MCP process in an environment that allows local watchdog socket creation. If logs mention `socket file access timed out`, `bind: invalid argument`, or `bind: operation not permitted`, the MCP server did not initialize; rerun SATK outside that sandbox or with the host runtime that permits local sockets.
+- Set `SATK_MCP_LOG_FOLDER` to a short ASCII path. Recommended values are `C:\Temp\matlab-mcp-core-server-codex` on Windows and `/private/tmp/matlab-mcp-core-server-codex` on macOS.
+- For an unattended Windows VM, prefer `SATK_MATLAB_SESSION_MODE=new` plus `SATK_MATLAB_ROOT=C:\Program Files\MATLAB\R2026a` (adjust release/path as installed). Use `existing` only when MATLAB is deliberately pre-launched and reachable.
+- If the SATK toolkit is not under the default `%USERPROFILE%\.matlab\agentic-toolkits` or `~/.matlab/agentic-toolkits`, set `SATK_MCP_SERVER` and `SATK_MCP_EXTENSION` explicitly.
+
 Use this MATLAB setup before `load_system(model)`:
 
 ```matlab

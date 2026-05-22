@@ -163,6 +163,26 @@ Use static inspection to find SIDs, constants, block parameters, `DataPortOrder`
 - `openpyxl` is required for the Python workbook scripts. If system Python lacks it, use the runtime Python available in the agent environment or install/use an environment with `openpyxl`.
 - Write model-specific helper scripts only when the generic scripts cannot reasonably support a model-specific constraint. If such a script encodes a working MATLAB setup, parameterize paths instead of hardcoding one workbook forever.
 
+## SATK Runtime for Hermes and Windows VMs
+
+Hermes production must make SATK startup deterministic. The skill's `scripts/satk_eval.py` supports these environment variables:
+
+- `SATK_MCP_SERVER`: full path to `matlab-mcp-core-server` or `matlab-mcp-core-server.exe` when the toolkit is not in the default user `.matlab/agentic-toolkits` folder.
+- `SATK_MCP_EXTENSION`: full path to `simulink/tools/tools.json`.
+- `SATK_MCP_LOG_FOLDER`: short ASCII log/socket folder. Use `C:\Temp\matlab-mcp-core-server-codex` on Windows when possible.
+- `SATK_MATLAB_SESSION_MODE`: use `new` for unattended production VMs, or `existing` only when MATLAB is already open and intended to be reused.
+- `SATK_MATLAB_ROOT`: MATLAB installation root, for example `C:\Program Files\MATLAB\R2026a`; this is passed only when `SATK_MATLAB_SESSION_MODE` is not `existing`.
+
+Recommended Windows VM bootstrap before invoking Hermes generation:
+
+```bat
+set SATK_MCP_LOG_FOLDER=C:\Temp\matlab-mcp-core-server-codex
+set SATK_MATLAB_SESSION_MODE=new
+set SATK_MATLAB_ROOT=C:\Program Files\MATLAB\R2026a
+```
+
+If SATK initialization fails before any MATLAB code executes, inspect `server-*.log` and `watchdog-*.log` in `SATK_MCP_LOG_FOLDER`. Errors such as `socket file access timed out`, `bind: invalid argument`, or `bind: operation not permitted` are MCP runtime/socket problems. Do not treat them as model-load failures and do not replace SATK reading with static SLX parsing; fix the runtime by using a short log folder and a host execution mode that allows local socket binding.
+
 ## PwrLimEng Lessons
 
 Relevant root outputs for expected values:
@@ -250,6 +270,7 @@ This skill is suitable for a Hermes-style agent if it can:
 - copy `assets/support-package/.` into the model workdir;
 - run Python with `openpyxl`;
 - run SATK/MATLAB to load and simulate the model;
+- create local MCP watchdog sockets in `SATK_MCP_LOG_FOLDER`;
 - create small model-specific JSON/spec helper scripts when model structure requires judgment.
 
 It is not a fully push-button generator. The intended agent still must inspect the model and design coverage-oriented stimuli. The bundled scripts make Excel creation, action extraction, simulation, and expected-output backfill repeatable.

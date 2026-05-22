@@ -35,6 +35,7 @@ Ask the user only when required input files or runtime dependencies are missing,
 
 - Use Simulink Agentic Toolkit / MCP first for model understanding: `model_overview`, `model_read`, `model_query_params`, `model_resolve_params`, and `evaluate_matlab_code`.
 - If direct MATLAB MCP tools are unavailable, run `scripts/satk_eval.py` with a MATLAB code file.
+- For Hermes/production runs, make SATK startup deterministic: run `scripts/satk_eval.py` in an environment that allows the MCP server to create its local watchdog socket, and set a short ASCII `SATK_MCP_LOG_FOLDER` such as `C:\Temp\matlab-mcp-core-server-codex` on Windows or `/private/tmp/matlab-mcp-core-server-codex` on macOS. If initialization logs show `watchdog`, `socket file access timed out`, `bind: invalid argument`, or `bind: operation not permitted`, treat it as a runtime/sandbox problem and rerun SATK outside that sandbox rather than falling back to static SLX parsing.
 - Do not replace SATK/MCP/MATLAB model reading with static `.slx` XML parsing. Static XML is only a supplement after SATK/MCP/MATLAB has been attempted or used, and only for exact SIDs, block parameters, or connectivity.
 - Do not pipe `.slx`/zip/XML output directly into interpreters such as `python3 -c`, `perl`, `ruby`, or `node -e`. If static XML inspection is needed, use `scripts/inspect_slx_xml.py MODEL.slx --pattern REGEX` or a checked-in file-reading script.
 - Copy `assets/support-package` into the working folder before loading the model unless the project already has equivalent Cornex/ITK dependencies.
@@ -100,7 +101,7 @@ Ask the user only when required input files or runtime dependencies are missing,
 
 5. **Backfill expected outputs from simulation**
    - Extract actions with `scripts/extract_tcsd_cases.py`.
-   - Run `scripts/simulate_tcsd_cases.m` through `scripts/satk_eval.py`.
+   - Run `scripts/simulate_tcsd_cases.m` through `scripts/satk_eval.py`. In Hermes or Windows VM production, configure the environment variables documented in `references/hermes-agent-handoff.md` before running SATK.
    - Apply results with `scripts/backfill_expected_outputs.py`. Pass any unverified stateful outputs as `--exclude-outputs` so they are removed from expectations instead of being filled with misleading default states.
    - Validate that every `expValue(...)` left side is a root Outport.
 
