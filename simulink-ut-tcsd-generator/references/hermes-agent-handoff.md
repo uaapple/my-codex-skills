@@ -26,7 +26,7 @@ The agent must automatically:
 - omit hold-style expectations for ramping or continuously changing outputs;
 - build the workbook from the bundled canonical template `assets/templates/tcsd_template.xlsx`;
 - save `outputs/<model>_Test0001_tcsd.xlsx`, or the next versioned filename if it exists;
-- keep the JSON case spec, simulation-result JSON, and a short validation report with the workbook.
+- deliver the Excel workbook as the required output. JSON/spec/simulation files may be used as internal script artifacts, but a separate validation report is not required unless the user explicitly asks for one.
 
 Only ask for clarification when the `.slx`, matching `.mat`, MATLAB/SATK runtime, or a required dependency is actually missing.
 
@@ -73,6 +73,8 @@ cp -R <skill_dir>/assets/support-package/. <model_workdir>/
 - Kill stale `matlab-mcp-core-server` processes after SATK calls if they remain running and block later calls.
 
 ## Preferred End-to-End Workflow
+
+Production invocation is intentionally minimal: the backend may provide only `<model>.slx`, `<model>.mat`, and this skill. The agent must not wait for screenshots, prior chat context, or MQTester reports before generating AND/OR MC/DC stimuli.
 
 1. Create or select a clean model workdir.
 2. Copy `assets/support-package/.` into the workdir.
@@ -127,7 +129,7 @@ Treat every decision outcome as an obligation:
 - `MultiPortSwitch`: cover every valid selector value and default/otherwise only if the model safely accepts that selector.
 - `Saturate`: cover below-low, pass-through, and above-high regions by proving the pre-saturation input crosses the limits. If calibration/lookup values can never exceed a limit, record the remaining region as unreachable rather than unsafe table manipulation.
 - `RelationalOperator`/`Switch`: cover both true and false by driving the actual trigger signal across the block criterion. For sign criteria such as `< 0`, `<= 0`, `~= 0`, or `u2 ~= 0`, include negative, zero, and positive/equality-side values as applicable.
-- `Logical Operator`: cover every input port true and false and satisfy MC/DC. For N-input OR, use all inputs false plus one case for each single true input. For N-input AND, use all inputs true plus one case for each single false input. For chained logic or NOT-fed inputs, target the truth vector at the logical operator input ports.
+- `Logical Operator`: satisfy MC/DC from model structure during the initial production run. For N-input OR, use all inputs false plus one case for each single true input. For N-input AND, use all inputs true plus one case for each single false input. For chained logic, NOT-fed inputs, relational outputs, and enum equality banks, target the truth vector at the logical operator input ports and resolve the raw root-input values needed to produce that vector. Write the resolved enum/state values into TCSD root-input assignments, such as BMS activity states `4/8/9` or relay closed state `2`, when those constants are present in the loaded model data.
 - `Safe_Divide`: denominator zero/protected path and normal nonzero path.
 - `Lookup_n-D`: use low/mid/high and edge breakpoints that influence downstream decisions.
 - `LowPass`/filter/GradientLimiter upstream of a selector: use Initialization, longer hold time, or explicit scalar parameter override so the intended selector/result actually settles.
@@ -239,6 +241,8 @@ HvCoorn feedback exposed a recurring logical-operator miss:
 - HVIL/status AND logic, especially nested AND chains with NOT-fed inputs, needs one satisfying baseline and one single-fault case per condition. Derive the required raw root-input value from the actual operator input polarity.
 - Coverage reports may label combined logic as `Includes N blocks` with `C1..Cn`. Treat each listed condition as an obligation and generate the `N+1` MC/DC pattern unless a condition is unreachable.
 - Probe logical-operator input ports or their immediate relational outputs when repairing coverage; the final mode/status output alone is not enough evidence.
+
+For production generation without coverage feedback, still apply the same MC/DC pattern to AND/OR groups that can be traced from the model. If a required truth vector cannot be mapped to root inputs or scalar parameters, do not invent a Boolean `0/1` assignment or add a fake coverage row.
 
 HvCoorn also exposed a state-machine expected-output failure pattern:
 

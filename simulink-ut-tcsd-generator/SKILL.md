@@ -27,7 +27,7 @@ By default, you must:
 - Avoid hold-style expected values for dynamic, ramping, or continuously changing outputs.
 - Build the Excel workbook from `assets/templates/tcsd_template.xlsx`; this bundled template is the canonical TCSD input format expected by the downstream automatic test software.
 - Write the templated workbook to `outputs/<model>_Test0001_tcsd.xlsx`, or the next versioned filename if that output already exists.
-- Preserve a generation JSON spec, simulation-result JSON, and a short validation report alongside the workbook.
+- Deliver the Excel workbook as the required output. Generation JSON/spec/simulation files may be used as internal script artifacts when helpful, but do not require a separate validation report unless the user explicitly asks for one.
 
 Ask the user only when required input files or runtime dependencies are missing, or when the model cannot be loaded after applying the bundled support package.
 
@@ -50,7 +50,8 @@ Ask the user only when required input files or runtime dependencies are missing,
 - Remember TCSD delay semantics: expectations written after `[+500ms]` are checked in the interval after that delay, not at the initialization instant. Stateful outputs must reflect the state reached after the delay has elapsed.
 - Generate tests for coverage first: enable/disable branches, threshold sides, limiters, lookup-table regions, delay/latch behavior, divide-by-zero protection, and mode switches.
 - Treat decision outcomes as explicit coverage obligations. For `MinMax`, make each input become the selected output at least once. For `MultiPortSwitch`, cover every valid selector value and the default/otherwise branch when present. For `Saturate`, cover below-low, pass-through, and above-high regions.
-- Treat every `Logical Operator` block as an MC/DC obligation. For N-input OR, include an all-false case plus one case per input where only that input is true. For N-input AND, include an all-true case plus one case per input where only that input is false. Account for NOT/inverted upstream signals by targeting the truth value at the operator input, not just the raw root signal value.
+- Treat every `Logical Operator` AND/OR block as a production-default MC/DC obligation, even when the only inputs are the user-provided `.slx` and `.mat`. For N-input OR, include an all-false case plus one case per input where only that input is true. For N-input AND, include an all-true case plus one case per input where only that input is false. Target the truth vector at the logical-operator input ports, not the Test description or final output.
+- For logical inputs driven by `RelationalOperator` or `Switch` criteria, trace the immediate upstream condition back to root inputs or parameters. If the condition compares a root signal with an enum/constant, resolve that value from the loaded `.mat`, `init_Global.m`, model workspace, or data dictionary; do not use generic Boolean `0/1` unless the resolved value is actually `0` or `1`. Write the resolved values directly into TCSD root-input assignments, for example BMS-style states such as `BMSActSt_online=4`, `BMSActSt_DCChrg=8`, `BMSActSt_ACChrg=9`, or relay closed values such as `2` when those mappings exist in the model data.
 - For every `Saturate` block, identify the pre-saturation input signal and prove it is below the lower limit, inside range, and above the upper limit. Do not infer saturation coverage only from extreme root inputs or from the saturated output value. If the upstream lookup/calibration range cannot cross a limit with valid inputs, mark that outcome unreachable rather than forcing unsafe table edits.
 - For every `Abs` block, design coverage on the pre-Abs source signal: negative, zero, and positive values. Do not treat a positive `Abs` output as covering a positive source input.
 - For every `Switch` or `RelationalOperator`, inspect the actual trigger/criterion and drive the trigger signal to both sides of the condition. For sign-based criteria such as `< 0`, `<= 0`, `~= 0`, or `u2 ~= 0`, include explicit negative, zero, and positive/equality-side values as applicable; do not assume toggling an adjacent mode or selector covers the true branch.
@@ -75,7 +76,8 @@ Ask the user only when required input files or runtime dependencies are missing,
    - Use SATK to load support paths, run `init_Global.m`, load the `.mat`, load `ITKLib.slx`, then load the model.
    - Derive root Inport and Outport order from the model, not from guesses.
    - Read the subsystem hierarchy and the blocks around Switch, Multiport Switch, Lookup Table, Delay, Latch, GradientLimiter, Safe_Divide, Min/Max, and logical operators.
-   - Identify stateful top-level outputs whose source chain passes through Stateflow, UnitDelay/Delay/Memory, latch, edge, or old-state feedback blocks. Keep this list with the generation JSON/validation report and treat it as an exclusion list for unverified expected-output backfill.
+   - For AND/OR `Logical Operator` blocks, identify immediate input sources and whether each port is driven by a root signal, relational comparison, enum equality, NOT, or nested logical expression. Use this to derive MC/DC truth vectors before writing the workbook.
+   - Identify stateful top-level outputs whose source chain passes through Stateflow, UnitDelay/Delay/Memory, latch, edge, or old-state feedback blocks. Use this list as an exclusion list for unverified expected-output backfill.
    - Use static `.slx` XML inspection only as a supplement after SATK/MCP/MATLAB model reading, when block paths, SIDs, constants, or line connectivity are needed. Prefer `scripts/inspect_slx_xml.py`; do not use shell pipelines that feed zip/XML output into inline interpreter commands.
    - Build a block-level coverage-obligation checklist before writing tests. See `references/coverage-closure.md`.
 
@@ -90,6 +92,7 @@ Ask the user only when required input files or runtime dependencies are missing,
    - Use explicit time units (`s`, `ms`, etc.), terminate executable statements with English semicolons, and write comments with `//`.
    - Describe input/output meanings or condition changes in `Action` comments when they clarify the coverage target.
    - Add targeted supplemental Tests for uncovered `MinMax`, `MultiPortSwitch`, `Saturate`, `Logical Operator`, relational, and selector outcomes before optimizing for compactness.
+   - Do not wait for MQTester reports or chat history to cover AND/OR logic. In the first production workbook, include TCSD actions that realize the derived MC/DC truth vectors for model-visible AND/OR blocks where the upstream conditions can be traced to root inputs or scalar parameters.
    - For each supplemental Test, record the exact missing decision outcome it targets. Do not count it as closed merely because the stimulus appears plausible.
    - Keep coverage-only stimuli even when their outputs are dynamic and therefore have few expected-output lines.
    - Add only top-level output expectations.
@@ -110,7 +113,8 @@ Ask the user only when required input files or runtime dependencies are missing,
    - Inspect the TCSD sheet with a spreadsheet library or artifact-tool.
    - Check there are no internal-signal expectations and no unsupported input values exposed by simulation.
    - Check that stateful top-level outputs are either backed by verified stable post-delay simulation evidence or omitted from the affected Test. Never leave a state-machine output expected to stay at its initialization value merely because the first action begins with a delay.
-   - If model coverage evidence is available, verify decision coverage first. For each feedback item, confirm the outcome with a coverage rerun or a targeted probe of the decision block inputs/selectors. Add tests or record an explicit unreachable/invalid-selector reason for any remaining uncovered outcome.
+   - Check the workbook Actions themselves for Logical Operator MC/DC: each traceable AND/OR group must have TCSD input assignments that realize the required truth vectors. If a truth vector cannot be traced to root inputs or scalar parameters, do not add a fake coverage row or claim it covered.
+   - If model coverage evidence is available, use it to confirm or refine the generated MC/DC obligations. Coverage feedback is not a prerequisite for generating AND/OR MC/DC cases.
 
 ## References
 

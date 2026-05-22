@@ -7,7 +7,7 @@ Use this reference when designing or repairing TCSD cases for model coverage. Co
 Create a short checklist before writing the workbook:
 
 - `Switch` / relational logic: true and false outcomes.
-- `Logical Operator` AND/OR: each input condition true and false, plus MC/DC pairs where one input independently changes the output.
+- `Logical Operator` AND/OR: production-default MC/DC at the operator input ports. This is required from the model structure itself and does not depend on an external coverage report.
 - `MinMax`: each input port is the selected maximum/minimum at least once.
 - `MultiPortSwitch`: every valid selector value, plus default/otherwise branch when the block has one.
 - `Saturate`: below lower limit, pass-through region, above upper limit.
@@ -26,7 +26,9 @@ For every item, write one of: `covered by TC_xxx`, `needs supplemental test`, or
 - For `Switch` and `RelationalOperator`, read the block criterion/threshold first, then choose root input values on both sides of that exact condition. For sign-based conditions, use negative, zero, and positive values rather than only "normal positive" values.
 - For an N-input OR, generate an all-false baseline to get false output, then N single-true cases such as `TFF`, `FTF`, `FFT` so each input independently drives true output.
 - For an N-input AND, generate an all-true baseline to get true output, then N single-false cases such as `FTT`, `TFT`, `TTF` so each input independently drives false output.
-- For nested or chained logical expressions, flatten the effective operator inputs from the coverage report (for example `C1..C9`) and design the same MC/DC pattern at the operator input values. If an upstream NOT feeds the operator, invert the raw stimulus so the operator input receives the intended true/false value.
+- MC/DC is not full combinational coverage. Do not generate `2^N` combinations unless the user explicitly asks for truth-table exhaustion; the default obligation is the baseline plus one independent-toggle case per input.
+- For nested or chained logical expressions, target the effective logical operator input values. If an upstream NOT feeds the operator, invert the raw stimulus so the operator input receives the intended true/false value.
+- For enum/constant equality inputs, resolve the constant value from the loaded MAT/init/data-dictionary/model workspace before writing TCSD. Example: if a logical input is `icbms_stHvBat == BMSActSt_ACChrg`, the action must use the resolved value of `BMSActSt_ACChrg`, not a guessed Boolean `1`. In BMS-style models, mappings such as `BMSActSt_online=4`, `BMSActSt_DCChrg=8`, `BMSActSt_ACChrg=9`, and relay closed `=2` are enum/state values that must be written as root-input assignments when they are the resolved comparison constants.
 - When a selector is produced by voltage/current/speed filtering or lookup logic, hold the source input long enough for the selector to settle, or put the desired source value in Initialization.
 - For `Saturate`, identify `UpperLimit`, `LowerLimit`, and the pre-saturation input before writing stimuli. If that input is produced by lookup tables or calibration arithmetic, inspect the MAT/table min/max over valid input ranges first. Design root inputs or safe explicit parameter overrides that make the pre-saturation value lower than the lower limit, inside range, and higher than the upper limit; exact boundary values usually do not close both decisions.
 - If a value causes simulation to stop because the selector is invalid, do not keep it as a normal unit-test case. Cover the default branch only when the block and model allow that selector safely.
@@ -52,7 +54,7 @@ Useful probes for closure, while still keeping TCSD expectations top-level only:
 - `MultiPortSwitch`: log the integer selector at the block input. High source values such as voltage or mode commands do not prove the selector reached the intended port when a filter, lookup, or quantizer is upstream.
 - `Saturate`: log the pre-saturation value and confirm it is below low, inside range, and above high. Do not claim closure from the saturated output alone. If valid MAT/calibration data keeps the pre-saturation value inside the limits, record the low/high outcomes as unreachable instead of inventing unsafe table edits.
 - `Switch` / relational logic: log the logical trigger value; for sign-based switches, deliberately cover both positive and negative root inputs.
-- `Logical Operator`: log each operator input port and confirm the intended truth vector occurred, not just the final output. OR needs all-false and single-true vectors; AND needs all-true and single-false vectors.
+- `Logical Operator`: log or otherwise prove each operator input port saw the intended truth vector, not just the final output. OR needs all-false and single-true vectors; AND needs all-true and single-false vectors. The generated TCSD workbook must contain the actual root-input assignments for each traceable vector; do not rely on a separate report as the coverage artifact.
 - Filtered or ramp-limited paths: use longer hold time, Initialization, or explicit parameter overrides, then confirm the downstream decision saw the settled value.
 
 ## PwrLimEng Feedback Pattern
@@ -74,7 +76,7 @@ The later PwrLimEng_Test0002 feedback added a stronger lesson: coverage intent w
 - For `Saturate` blocks fed by efficiency lookup tables or similar calibrated maps, extreme voltage/speed/torque inputs are not evidence by themselves. Inspect or probe the pre-saturation map output; if valid calibration data keeps it inside the saturation limits, document the low/high outcomes as unreachable rather than claiming them covered.
 - For mode-switched subpaths such as AWD/non-AWD branches, do not assume the mode signal covers internal `Switch` blocks inside that subpath. Identify each internal `Switch` trigger, such as torque sign or zero/nonzero logic, and separately cover true/false with negative, zero, and positive/equality-side values as applicable.
 - In `B03_ISGLimTq`, final `PwrLimEng_tqISGMin` Max and `PwrLimEng_tqISGMax` Min candidate coverage must be verified by probing candidate inputs. Cases that reduce charge/discharge power or disable ramping may still leave the wrong candidate selected.
-- For a PwrLimEng coverage-repair pass, prefer producing a new version such as `PwrLimEng_Test0003_tcsd.xlsx`, with a short report mapping each Word/coverage feedback item to `confirmed covered`, `still uncovered`, or `unreachable`.
+- For a PwrLimEng coverage-repair pass, prefer producing a new version such as `PwrLimEng_Test0003_tcsd.xlsx`. If the user asks for a repair summary, map each Word/coverage feedback item to `confirmed covered`, `still uncovered`, or `unreachable`; otherwise keep the TCSD workbook as the deliverable.
 
 ## HvGrid Pattern
 
