@@ -45,6 +45,8 @@ Ask the user only when required input files or runtime dependencies are missing,
 - TCSD expectation syntax is `outSignal = expValue(var1, duration, offset);`. `var1` is a numeric expected value or an input-signal name string, `duration` is the expected-value check duration, and `offset` is the offset relative to the current time interval. Extra arguments are time-window controls, not numeric tolerance.
 - For simulation-sampled values, write `expValue(value)` by default. Use `expValue(value,duration,offset)` only when deliberately checking a stable value over that time window.
 - Do not write hold-style expectations for outputs that keep changing before the next action step. Backfill only outputs that are stable across the following hold interval; omit ramping outputs from that Test unless deliberately generating dense per-sample staircase expectations.
+- Treat top-level outputs sourced from Stateflow Charts, UnitDelay/Delay/Memory blocks, latches, edge detectors, or `*_Old` feedback as stateful expected-output risks. Do not fill them from initial/default/static values. Write `expValue(...)` for these outputs only when a full simulation or MQTester-equivalent result confirms the post-delay value is stable across the checked interval; otherwise omit those outputs from that Test.
+- Remember TCSD delay semantics: expectations written after `[+500ms]` are checked in the interval after that delay, not at the initialization instant. Stateful outputs must reflect the state reached after the delay has elapsed.
 - Generate tests for coverage first: enable/disable branches, threshold sides, limiters, lookup-table regions, delay/latch behavior, divide-by-zero protection, and mode switches.
 - Treat decision outcomes as explicit coverage obligations. For `MinMax`, make each input become the selected output at least once. For `MultiPortSwitch`, cover every valid selector value and the default/otherwise branch when present. For `Saturate`, cover below-low, pass-through, and above-high regions.
 - Treat every `Logical Operator` block as an MC/DC obligation. For N-input OR, include an all-false case plus one case per input where only that input is true. For N-input AND, include an all-true case plus one case per input where only that input is false. Account for NOT/inverted upstream signals by targeting the truth value at the operator input, not just the raw root signal value.
@@ -72,6 +74,7 @@ Ask the user only when required input files or runtime dependencies are missing,
    - Use SATK to load support paths, run `init_Global.m`, load the `.mat`, load `ITKLib.slx`, then load the model.
    - Derive root Inport and Outport order from the model, not from guesses.
    - Read the subsystem hierarchy and the blocks around Switch, Multiport Switch, Lookup Table, Delay, Latch, GradientLimiter, Safe_Divide, Min/Max, and logical operators.
+   - Identify stateful top-level outputs whose source chain passes through Stateflow, UnitDelay/Delay/Memory, latch, edge, or old-state feedback blocks. Keep this list with the generation JSON/validation report and treat it as an exclusion list for unverified expected-output backfill.
    - Use static `.slx` XML inspection only as a supplement after SATK/MCP/MATLAB model reading, when block paths, SIDs, constants, or line connectivity are needed. Prefer `scripts/inspect_slx_xml.py`; do not use shell pipelines that feed zip/XML output into inline interpreter commands.
    - Build a block-level coverage-obligation checklist before writing tests. See `references/coverage-closure.md`.
 
@@ -98,13 +101,14 @@ Ask the user only when required input files or runtime dependencies are missing,
 5. **Backfill expected outputs from simulation**
    - Extract actions with `scripts/extract_tcsd_cases.py`.
    - Run `scripts/simulate_tcsd_cases.m` through `scripts/satk_eval.py`.
-   - Apply results with `scripts/backfill_expected_outputs.py`.
+   - Apply results with `scripts/backfill_expected_outputs.py`. Pass any unverified stateful outputs as `--exclude-outputs` so they are removed from expectations instead of being filled with misleading default states.
    - Validate that every `expValue(...)` left side is a root Outport.
 
 6. **Verify**
    - Run `unzip -t` on the output workbook.
    - Inspect the TCSD sheet with a spreadsheet library or artifact-tool.
    - Check there are no internal-signal expectations and no unsupported input values exposed by simulation.
+   - Check that stateful top-level outputs are either backed by verified stable post-delay simulation evidence or omitted from the affected Test. Never leave a state-machine output expected to stay at its initialization value merely because the first action begins with a delay.
    - If model coverage evidence is available, verify decision coverage first. For each feedback item, confirm the outcome with a coverage rerun or a targeted probe of the decision block inputs/selectors. Add tests or record an explicit unreachable/invalid-selector reason for any remaining uncovered outcome.
 
 ## References

@@ -59,12 +59,18 @@ def build_action(
     allowed_outputs: set[str],
 ) -> str:
     rebuilt: list[str] = []
-    for step in parse_steps(action):
+    steps = parse_steps(action)
+    for position, step in enumerate(steps):
         rebuilt.append(step["marker"])
+        kept_lines: list[str] = []
         for line in step["lines"]:
             if ANY_EXPECTED_RE.match(line):
                 continue
+            kept_lines.append(line)
             rebuilt.append(line)
+        is_final_empty_delay = position == len(steps) - 1 and not any(line.strip() for line in kept_lines)
+        if is_final_empty_delay:
+            continue
         values = step_results.get(step["index"], {}).get("outputs", {})
         for output in outputs:
             if output in allowed_outputs and output in values:
@@ -77,9 +83,16 @@ def main() -> int:
     parser.add_argument("--workbook", required=True)
     parser.add_argument("--results", required=True)
     parser.add_argument("--outputs", required=True, help="Comma-separated root output names")
+    parser.add_argument(
+        "--exclude-outputs",
+        default="",
+        help="Comma-separated root outputs to remove from expValue backfill, for example unverified stateful outputs",
+    )
     args = parser.parse_args()
 
     outputs = [name.strip() for name in args.outputs.split(",") if name.strip()]
+    excluded_outputs = {name.strip() for name in args.exclude_outputs.split(",") if name.strip()}
+    outputs = [name for name in outputs if name not in excluded_outputs]
     results = json.loads(Path(args.results).read_text(encoding="utf-8"))
     tests = results["tests"]
     if isinstance(tests, dict):

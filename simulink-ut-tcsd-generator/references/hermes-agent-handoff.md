@@ -116,6 +116,7 @@ The biggest correctness issue in the thread was expected-output semantics:
 - The second and third arguments are not numeric tolerance. Do not use them to express tolerance.
 - For simulation-sampled expected values, write `expValue(value)` by default.
 - If an output ramps or changes during the following hold interval, omit that output from the Test. Do not write one sampled value and then let the unit-test/MQT checker compare it as a held constant.
+- For Stateflow/state-machine/history-feedback outputs, omit expectations unless a full simulation or MQTester-equivalent trace confirms the stable post-delay value. Do not copy initialization/default values into later `[+delay]` intervals.
 - Stimulus coverage and expected-output coverage are separate. Keep a Test/action if it improves model coverage even when few outputs are stable enough to backfill.
 
 ## Coverage Design Rules
@@ -218,6 +219,10 @@ HvCoorn feedback exposed a recurring logical-operator miss:
 - HVIL/status AND logic, especially nested AND chains with NOT-fed inputs, needs one satisfying baseline and one single-fault case per condition. Derive the required raw root-input value from the actual operator input polarity.
 - Coverage reports may label combined logic as `Includes N blocks` with `C1..Cn`. Treat each listed condition as an obligation and generate the `N+1` MC/DC pattern unless a condition is unreachable.
 - Probe logical-operator input ports or their immediate relational outputs when repairing coverage; the final mode/status output alone is not enough evidence.
+
+HvCoorn also exposed a state-machine expected-output failure pattern:
+
+- Outputs such as `HvCoorn_stHVP` and downstream mode requests (`HvCoorn_stFMCUModeReq`, `HvCoorn_stRMCUModeReq`, `HvCoorn_stISGModeReq`) can transition during the initial delay. If a Test writes `expValue` after `[+500ms]`, the expected value must match the state reached after 500 ms. Do not keep expecting the initialization state (`1`/`2`) unless a trusted trace proves it remains stable.
 
 ## Validation Checklist Before Delivery
 

@@ -108,6 +108,8 @@ Use simulation to compute expected values for top-level outputs only. If interna
 
 For ramped outputs, do not write a single hold-style expectation. TCSD keeps or window-checks the sampled expected value over time, so a sampled ramp value becomes a wrong constant expectation. Prefer omitting that output from the Test, or generate a separate dense 10 ms staircase only when the user explicitly wants ramp-shape checking.
 
+State-machine and history-feedback outputs need an additional guard. If a root Outport is sourced by a Stateflow Chart, UnitDelay/Delay/Memory, latch, edge detector, or `*_Old` feedback path, treat it as stateful. Do not fill it from a nominal initial value in every step. A line after `[+500ms]` is checked after the 500 ms delay, so the correct value is the state reached after the delay, not the initialization state. If full simulation/MQTester-equivalent evidence is missing or conflicts with the downstream report, exclude that output from expected values for the affected Test.
+
 Do not let expected-output stability rules reduce stimulus coverage. It is acceptable for a Test to exist mainly to cover a decision outcome and contain few or no `expValue(...)` lines for dynamic outputs.
 
 For larger modules such as HvGrid, many root outputs may be vectors or unsupported by the target TCSD import. Build a root-output allowlist from model metadata and backfill scalar top-level outputs first. Validate vector outputs are absent unless the vector macro syntax and element mapping are confirmed.

@@ -106,6 +106,8 @@ For simulation-derived values, use `expValue(value)` by default. Use `expValue(v
 
 Only write a simulation-derived expected output when that output is stable until the next `[+...]` action step. If the output ramps or keeps changing during the following hold interval, omit that output expectation for the whole Test unless the user explicitly asks for a dense sampled staircase.
 
+For stateful top-level outputs fed by Stateflow Charts, UnitDelay/Delay/Memory, latch/edge logic, or `*_Old` feedback, do not write expectations from initialization/default values. Expectations after `[+delay]` are checked after that delay has elapsed, so a state machine may already have transitioned before the check window starts. Backfill these outputs only from a trusted full simulation or MQTester-equivalent trace that confirms a stable post-delay value; otherwise omit them from the Test.
+
 Stimulus coverage and expected-output backfill are separate concerns. Keep a Test/action step when it is needed to cover a decision outcome even if the relevant top-level output is dynamic and therefore omitted from expected outputs.
 
 ## Multidimensional Signals
