@@ -134,5 +134,6 @@ Before finishing, check:
 - Every `Type = Test` row has complete startup inputs in its own `Initialization` cell; no Test row is empty or contains only sparse overrides unless the model truly has no other root inputs.
 - Every Test `Action` ends with a final relative delay marker such as `[+0.1s]`.
 - Selector values are in valid model ranges.
+- MultiPortSwitch invalid-selector errors have been repaired by changing stimulus, settle time, or justified scalar overrides; they are not hidden by global diagnostic suppression in normal generation.
 - Uncovered `MinMax`, `MultiPortSwitch`, and `Saturate` outcomes are either covered by supplemental tests or explicitly justified as unreachable/invalid for simulation.
 - Workbook opens and imports.

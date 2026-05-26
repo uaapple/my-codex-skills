@@ -81,6 +81,7 @@ For each major subsystem, create one or more Test rows that cover:
 - Saturation and Min/Max limits.
 - For `MinMax` blocks, every input port must win at least once unless it is unreachable; equality/tie cases do not count as a reliable win.
 - For `MultiPortSwitch` blocks, cover every valid selector value and any default/otherwise branch. Derive selector legality per block, not from a similarly named enum elsewhere in the model.
+- A `MultiPortSwitch` invalid-selector simulation stop is useful feedback. Do not globally change MPS default diagnostics to make the model run. Use the enriched `simulate_tcsd_cases.m` error to find the block and selector source, then adjust the stimulus, hold duration, or safe scalar parameter override so the selector reaches a valid intended value.
 - For `Saturate` blocks, cover input below lower limit, inside limits, and above upper limit.
 - For `Logical Operator` AND/OR blocks, cover MC/DC-style vectors. OR needs all-false and single-true-per-input cases. AND needs all-true and single-false-per-input cases. Apply upstream NOT/inversion before deciding root input values.
 - Safe divide denominator zero and nonzero cases.

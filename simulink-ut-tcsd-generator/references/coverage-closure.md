@@ -23,6 +23,7 @@ For every item, write one of: `covered by TC_xxx`, `needs supplemental test`, or
 
 - Make one condition dominate at a time. For `MinMax`, set a clear margin so the intended port wins; avoid equal values because coverage tools may attribute ties unexpectedly.
 - For `MultiPortSwitch`, derive selector values from the actual block and upstream logic. Do not assume a model-wide enum is valid for every switch.
+- If a generated case makes a `MultiPortSwitch` selector invalid during simulation, do not keep it by suppressing the default-case diagnostic. Inspect the diagnostic summary, then fix the root-input values, settle time, or safe scalar overrides that drive the selector. Use `TCSD_ALLOW_MPS_DEFAULT_OVERRIDE=1` only for a temporary diagnosis run, not for trusted backfill.
 - For `Switch` and `RelationalOperator`, read the block criterion/threshold first, then choose root input values on both sides of that exact condition. For sign-based conditions, use negative, zero, and positive values rather than only "normal positive" values.
 - For an N-input OR, generate an all-false baseline to get false output, then N single-true cases such as `TFF`, `FTF`, `FFT` so each input independently drives true output.
 - For an N-input AND, generate an all-true baseline to get true output, then N single-false cases such as `FTT`, `TFT`, `TTF` so each input independently drives false output.

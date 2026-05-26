@@ -15,6 +15,7 @@ if exist(fullfile(rootDir, 'ITKLib.slx'), 'file')
     load_system(fullfile(rootDir, 'ITKLib.slx'));
 end
 load_system(fullfile(rootDir, [modelName '.slx']));
+maybe_apply_mps_default_override(modelName);
 
 try
     if any(strcmp(getConfigSets(modelName), 'CodexSimOnlyCfg'))
@@ -200,7 +201,15 @@ end
 in = Simulink.SimulationInput(modelName);
 in = in.setModelParameter('StopTime', num2str(stopTime), 'SolverType', 'Fixed-step', 'Solver', 'FixedStepDiscrete', 'FixedStep', num2str(dt), 'SaveOutput', 'on', 'ReturnWorkspaceOutputs', 'on');
 in = in.setExternalInput(ds);
-out = sim(in);
+try
+    out = sim(in);
+catch ME
+    if is_mps_selector_error(ME)
+        diagText = mps_diagnostic_summary(modelName);
+        error('simulate_tcsd_cases:InvalidMultiPortSwitchSelector', '%s\n\n%s', getReport(ME, 'basic', 'hyperlinks', 'off'), diagText);
+    end
+    rethrow(ME);
+end
 
 stepResults = struct('index', {}, 'time_s', {}, 'outputs', {}, 'stable', {});
 for k = 1:numel(steps)
@@ -284,6 +293,85 @@ if contains(signalName, 'eff', 'IgnoreCase', true) || contains(signalName, 'pct'
     tol = 1e-5;
 else
     tol = 1e-4;
+end
+end
+
+function maybe_apply_mps_default_override(modelName)
+flag = getenv('TCSD_ALLOW_MPS_DEFAULT_OVERRIDE');
+if ~any(strcmpi(flag, {'1', 'true', 'yes', 'on'}))
+    return;
+end
+warning('simulate_tcsd_cases:MPSDefaultOverride', ...
+    ['TCSD_ALLOW_MPS_DEFAULT_OVERRIDE is enabled. MultiPortSwitch default-case diagnostics ' ...
+     'will be suppressed for this simulation only. Use this for diagnosis, not for trusted expected-output backfill.']);
+mpsBlocks = find_system(modelName, 'LookUnderMasks', 'all', 'FollowLinks', 'on', 'BlockType', 'MultiPortSwitch');
+for k = 1:numel(mpsBlocks)
+    try
+        set_param(mpsBlocks{k}, 'DiagnosticForDefault', 'None');
+        set_param(mpsBlocks{k}, 'DataPortForDefault', 'Last data port');
+    catch
+    end
+end
+end
+
+function tf = is_mps_selector_error(ME)
+report = getReport(ME, 'basic', 'hyperlinks', 'off');
+tf = (contains(report, 'Multiport Switch', 'IgnoreCase', true) || contains(report, 'MultiPortSwitch', 'IgnoreCase', true)) ...
+    && (contains(report, 'control port', 'IgnoreCase', true) ...
+        || contains(report, '控制端口') ...
+        || contains(report, 'does not correspond', 'IgnoreCase', true) ...
+        || contains(report, '不对应'));
+end
+
+function text = mps_diagnostic_summary(modelName)
+mpsBlocks = find_system(modelName, 'LookUnderMasks', 'all', 'FollowLinks', 'on', 'BlockType', 'MultiPortSwitch');
+lines = {
+    'MPS diagnostic: a MultiPortSwitch selector reached a value that is not accepted by its data-port indexing.'
+    'Default behavior is to fix the TCSD stimulus or calibration override, not to suppress the model diagnostic.'
+    'If a temporary diagnostic run is needed, set TCSD_ALLOW_MPS_DEFAULT_OVERRIDE=1; do not treat that run as trusted expected-output backfill.'
+    'MultiPortSwitch blocks in the loaded model:'
+};
+for k = 1:numel(mpsBlocks)
+    block = mpsBlocks{k};
+    lines{end + 1} = sprintf('- %s', block); %#ok<AGROW>
+    lines{end + 1} = sprintf('  selector_source: %s', selector_source(block)); %#ok<AGROW>
+    lines{end + 1} = sprintf('  Inputs=%s, DataPortOrder=%s, DataPortIndices=%s', ...
+        safe_get_param(block, 'Inputs'), safe_get_param(block, 'DataPortOrder'), safe_get_param(block, 'DataPortIndices')); %#ok<AGROW>
+    lines{end + 1} = sprintf('  DiagnosticForDefault=%s, DataPortForDefault=%s', ...
+        safe_get_param(block, 'DiagnosticForDefault'), safe_get_param(block, 'DataPortForDefault')); %#ok<AGROW>
+end
+text = strjoin(lines, newline);
+end
+
+function source = selector_source(block)
+source = '<unavailable>';
+try
+    handles = get_param(block, 'PortHandles');
+    if isempty(handles.Inport)
+        source = '<no inport handles>';
+        return;
+    end
+    line = get_param(handles.Inport(1), 'Line');
+    if line == -1
+        source = '<unconnected control port>';
+        return;
+    end
+    srcPort = get_param(line, 'SrcPortHandle');
+    if srcPort == -1
+        source = '<unavailable source port>';
+        return;
+    end
+    srcBlock = get_param(srcPort, 'Parent');
+    source = sprintf('%s.out%d', srcBlock, double(get_param(srcPort, 'PortNumber')));
+catch
+end
+end
+
+function value = safe_get_param(block, paramName)
+try
+    value = char(string(get_param(block, paramName)));
+catch
+    value = '<unavailable>';
 end
 end
 
