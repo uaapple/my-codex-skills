@@ -27,6 +27,7 @@ The agent must automatically:
 - build the workbook from the bundled canonical template `assets/templates/tcsd_template.xlsx`;
 - save `outputs/<model>_Test0001_tcsd.xlsx`, or the next versioned filename if it exists;
 - deliver the Excel workbook as the required output. JSON/spec/simulation files may be used as internal script artifacts, but a separate validation report is not required unless the user explicitly asks for one.
+- clean the MATLAB/SATK session before returning, so later Hermes tasks do not inherit loaded models, copied support paths, or stale MCP state from this task.
 
 Only ask for clarification when the `.slx`, matching `.mat`, MATLAB/SATK runtime, or a required dependency is actually missing.
 
@@ -70,7 +71,8 @@ cp -R <skill_dir>/assets/support-package/. <model_workdir>/
 - Add `ITKCToolsV015/ModelingTools/01_Csc`, `ITKCToolsV015/GenLib`, the model workdir, and the skill `scripts/` folder to the MATLAB path before loading/simulating.
 - If the model’s original config references missing generated-code headers such as `rte_bsw_analog.h`, attach an in-memory `CodexSimOnlyCfg` and simulate with that. Do not edit the source `.slx`.
 - Load `ITKLib.slx` before the model if present.
-- Kill stale `matlab-mcp-core-server` processes after SATK calls if they remain running and block later calls.
+- Treat MATLAB as a reusable long-lived process unless production explicitly uses `SATK_MATLAB_SESSION_MODE=new`. If a model or library such as `ITKLib` is already loaded from a path outside the current workdir, close that loaded instance before loading the current workdir copy.
+- Kill stale task-owned `matlab-mcp-core-server` processes after SATK calls if they remain running and block later calls.
 
 ## Preferred End-to-End Workflow
 
@@ -88,7 +90,31 @@ Production invocation is intentionally minimal: the backend may provide only `<m
 10. Run simulation and export results.
 11. Backfill only stable top-level output expectations.
 12. Validate workbook shape, `expValue` left-hand names, vector-output omissions, and Excel zip integrity.
-13. If coverage feedback exists, add versioned supplemental Tests and repeat.
+13. Run the MATLAB cleanup contract before returning the final artifact JSON.
+14. If coverage feedback exists, add versioned supplemental Tests and repeat.
+
+## MATLAB Cleanup Contract for Hermes
+
+Hermes generation tasks must leave MATLAB in a clean enough state for the next task. This matters on developer Macs that reuse a MATLAB desktop and on Windows VMs that may keep a MATLAB/SATK process warm for throughput.
+
+At task start:
+
+- Record the original MATLAB current folder and path.
+- Record models/libraries already loaded before the task.
+- If `ITKLib` or the target model is already loaded from another path, close that loaded instance with `bdclose(name)` before loading the workspace copy.
+
+During the task:
+
+- Track each model/library loaded from the task workdir, including support libraries.
+- Avoid saving source models or libraries unless the user explicitly requested model edits.
+
+At task completion, including failures:
+
+- Close every model/library loaded by this task whose `FileName` is under the task workdir.
+- Clear task-local variables and simulation outputs.
+- Restore the original current folder and path when possible; otherwise remove the task workdir, support-package paths, and skill script paths that were added by this run.
+- Shut down task-owned MCP/SATK sessions. If a task-owned `matlab-mcp-core-server` remains and blocks future calls, terminate only that stale task-owned process and report it in the task warnings.
+- Put cleanup in `try`/`catch` or MATLAB `onCleanup` so it runs after model-load errors, failed simulations, timeouts, and interrupted Hermes runs.
 
 ## TCSD Style Learned From ACCtl/PwrLimEng
 
@@ -98,7 +124,8 @@ Production invocation is intentionally minimal: the backend may provide only `<m
 - Test rows use `Type = Test` and `Work Status = reviewed`.
 - Preserve the template's columns, freeze pane, cell styles, comments/status options, and workbook structure.
 - `Test Case Description` should include a method, such as requirement analysis, boundary value, equivalence class, or coverage feedback.
-- `Initialization` assigns all root inputs required for deterministic startup, plus explicit parameter overrides as `p ParamName = value;`.
+- Each Test row's `Initialization` assigns all root inputs required for deterministic startup, plus explicit parameter overrides as `p ParamName = value;`. Do not rely on the TestGroup row or previous Tests being inherited by the downstream runner.
+- If using a JSON spec, keep shared startup values in `test_group.initialization_1/2` for readability and put only per-Test overrides in `test.initialization`; `scripts/build_tcsd_from_json.py` expands the shared startup values into every Test row and lets the Test-specific values win.
 - `Action` uses relative time markers like `[+100ms]` or `[+0.2s]`.
 - Vector root inputs are initialized element by element, for example `VectorSig 1=5000;`, not as `VectorSig = [5000 5000];`.
 - Every Test `Action` ends with a final relative delay marker such as `[+0.1s]` after the last assignment or expectation.
@@ -255,7 +282,7 @@ HvCoorn also exposed a state-machine expected-output failure pattern:
 - `unzip -t <workbook>.xlsx` succeeds.
 - Sheet name is `TCSD`.
 - Test rows have `Type = Test` and `Work Status = reviewed`.
-- All root inputs needed for startup are initialized.
+- Every Test row is independently runnable: all root inputs needed for startup are initialized in that row, not only in the TestGroup row.
 - Every `expValue(...)` left-hand side is a top-level Outport.
 - No internal/local/MIL signal names appear as expected outputs.
 - No three-argument `expValue` is present unless it is intentionally checking a stable window.

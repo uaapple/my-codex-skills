@@ -26,6 +26,7 @@ HEADERS = [
 
 VECTOR_ASSIGN_RE = re.compile(r"^(\s*)([A-Za-z_]\w*)\s*=\s*\[([^\]]+)\]\s*;\s*$")
 FINAL_DELAY_RE = re.compile(r"^\[\+\s*[0-9.]+\s*(ms|s)\s*\](?:\s*//.*)?$", re.IGNORECASE)
+ASSIGNMENT_KEY_RE = re.compile(r"^\s*(p\s+)?([A-Za-z_]\w*)(?:\s+([1-9]\d*))?\s*=")
 
 
 def expand_vector_assignments(text: str) -> str:
@@ -52,6 +53,44 @@ def ensure_final_delay(action: str, delay: str = "[+0.1s]") -> str:
         return "\n".join(lines)
     lines.append(delay)
     return "\n".join(lines)
+
+
+def assignment_key(line: str) -> tuple[str, str, str] | None:
+    """Return a stable key for scalar, indexed vector, and parameter assignments."""
+    match = ASSIGNMENT_KEY_RE.match(line)
+    if not match:
+        return None
+    prefix, name, index = match.groups()
+    return ((prefix or "").strip(), name, index or "")
+
+
+def merge_initializations(common: str, override: str) -> str:
+    """Merge common TestGroup init into a Test, with Test-specific values winning."""
+    merged: list[str] = []
+    positions: dict[tuple[str, str, str], int] = {}
+
+    for raw in (common or "").splitlines():
+        line = raw.rstrip()
+        if not line.strip():
+            continue
+        key = assignment_key(line)
+        if key is not None:
+            positions[key] = len(merged)
+        merged.append(line)
+
+    for raw in (override or "").splitlines():
+        line = raw.rstrip()
+        if not line.strip():
+            continue
+        key = assignment_key(line)
+        if key is not None and key in positions:
+            merged[positions[key]] = line
+        else:
+            if key is not None:
+                positions[key] = len(merged)
+            merged.append(line)
+
+    return "\n".join(merged)
 
 
 def copy_row_style(ws, src_row: int, dst_row: int) -> None:
@@ -92,6 +131,13 @@ def main() -> int:
     ws.cell(3, 6).value = group.get("initialization_2", "")
     ws.cell(4, 6).value = group.get("output_reference_1", "")
     ws.cell(5, 6).value = group.get("output_reference_2", "")
+    common_initialization = expand_vector_assignments(
+        "\n".join(
+            item
+            for item in [group.get("initialization_1", ""), group.get("initialization_2", "")]
+            if item
+        )
+    )
 
     for row in range(6, max(ws.max_row, 40) + 1):
         for col in range(1, 10):
@@ -104,11 +150,15 @@ def main() -> int:
         ws.cell(row, 3).value = "Test"
         ws.cell(row, 4).value = test.get("requirement_id")
         ws.cell(row, 5).value = test.get("description", "")
-        ws.cell(row, 6).value = expand_vector_assignments(test.get("initialization", ""))
+        test_initialization = expand_vector_assignments(test.get("initialization", ""))
+        ws.cell(row, 6).value = merge_initializations(common_initialization, test_initialization)
         ws.cell(row, 7).value = ensure_final_delay(expand_vector_assignments(test.get("action", "")))
         ws.cell(row, 8).value = test.get("work_status", "reviewed")
         ws.cell(row, 9).value = test.get("report_links")
-        line_count = (ws.cell(row, 7).value or "").count("\n") + 1
+        line_count = max(
+            (ws.cell(row, 6).value or "").count("\n") + 1,
+            (ws.cell(row, 7).value or "").count("\n") + 1,
+        )
         ws.row_dimensions[row].height = min(409, max(180, line_count * 13))
 
     ws.freeze_panes = "A5"

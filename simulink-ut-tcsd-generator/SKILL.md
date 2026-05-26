@@ -26,8 +26,10 @@ By default, you must:
 - Simulate successfully when possible, then backfill only stable top-level output expectations from simulation results.
 - Avoid hold-style expected values for dynamic, ramping, or continuously changing outputs.
 - Build the Excel workbook from `assets/templates/tcsd_template.xlsx`; this bundled template is the canonical TCSD input format expected by the downstream automatic test software.
+- Make every final `Type = Test` row self-contained: its `Initialization` cell must include all root inputs needed for deterministic startup. Do not rely on the TestGroup row, previous Test rows, or hidden runner inheritance for required inputs.
 - Write the templated workbook to `outputs/<model>_Test0001_tcsd.xlsx`, or the next versioned filename if that output already exists.
 - Deliver the Excel workbook as the required output. Generation JSON/spec/simulation files may be used as internal script artifacts when helpful, but do not require a separate validation report unless the user explicitly asks for one.
+- Leave MATLAB clean after the task: close any model or library loaded from the task workspace, clear task-local variables, restore MATLAB path/current folder when possible, and stop task-owned MCP/SATK sessions so later Hermes tasks cannot inherit stale loaded models.
 
 Ask the user only when required input files or runtime dependencies are missing, or when the model cannot be loaded after applying the bundled support package.
 
@@ -39,7 +41,9 @@ Ask the user only when required input files or runtime dependencies are missing,
 - Do not replace SATK/MCP/MATLAB model reading with static `.slx` XML parsing. Static XML is only a supplement after SATK/MCP/MATLAB has been attempted or used, and only for exact SIDs, block parameters, or connectivity.
 - Do not pipe `.slx`/zip/XML output directly into interpreters such as `python3 -c`, `perl`, `ruby`, or `node -e`. If static XML inspection is needed, use `scripts/inspect_slx_xml.py MODEL.slx --pattern REGEX` or a checked-in file-reading script.
 - Copy `assets/support-package` into the working folder before loading the model unless the project already has equivalent Cornex/ITK dependencies.
+- Treat MATLAB as a reusable long-lived process unless `SATK_MATLAB_SESSION_MODE=new` guarantees isolation. At task start, close any preloaded model/library whose loaded file path is outside the current workspace before loading the current workspace copy. At task end, run the cleanup rules in **MATLAB Cleanup Contract** even after failures.
 - Use `assets/templates/tcsd_template.xlsx` as the required TCSD workbook template. Preserve its `TCSD` sheet, columns, row conventions, freeze pane, styles, comments/status options, and workbook structure so the downstream automatic test software can import it.
+- Treat TestGroup initialization as documentation/common defaults only. The final workbook must repeat the merged defaults in each Test row, with Test-specific assignments overriding common values.
 - Write vector root-input assignments element by element in TCSD, for example `Sig 1=5000;`, `Sig 2=5000;`. Do not write whole-vector input assignments like `Sig = [5000 5000];` unless the target importer has been explicitly confirmed to support them.
 - End every Test `Action` with a final relative delay marker such as `[+0.1s]` so the target has a run/sampling interval after the last assignment or expectation. Do not let a Test end on an input assignment or `expValue(...)` line.
 - Fill expected outputs only for top-level Outport signals. Never put model-internal/local signals in `Action` as `expValue(...)`.
@@ -61,6 +65,19 @@ Ask the user only when required input files or runtime dependencies are missing,
 - Do not stop after one static draft when coverage evidence is available. Use coverage reports, screenshots, or simulation probes to add supplemental tests for uncovered decision outcomes, then rebuild/backfill the workbook.
 - When regenerating after coverage feedback, create a versioned workbook/output JSON rather than overwriting the last reviewed workbook unless the user explicitly asks for overwrite.
 - Preserve user files. Do not overwrite the source `.slx` or `.mat`; write outputs under `outputs/`.
+
+## MATLAB Cleanup Contract
+
+Hermes may reuse the same MATLAB desktop/session across generation tasks. Always make the MATLAB side idempotent:
+
+- Record the original MATLAB current folder and path before adding task support paths.
+- Keep a list of models/libraries loaded by this task, including `ITKLib` and the target model.
+- Before loading a model or library, if `bdIsLoaded(name)` is true and `get_param(name, "FileName")` points outside the current task workspace, close that loaded instance with `bdclose(name)` and then load the workspace copy.
+- At task completion, whether success or failure, close all task-loaded models/libraries whose `FileName` is under the current task workspace. Use `bdclose(modelName)` / `bdclose(libraryName)`; do not save them unless the user explicitly asked to modify the source model.
+- Clear task-local variables and simulation outputs with `clearvars` or a scoped cleanup script, but do not clear user/global MATLAB preferences or unrelated models that were open before the task.
+- Restore the original current folder and path when possible. If exact path restoration is unsafe, at least remove the task workspace, copied support-package paths, and skill script paths that were added during this run.
+- If SATK/MCP started a task-owned MATLAB or MCP server process, shut it down cleanly. If the process remains and blocks later calls, report it and terminate only that task-owned stale `matlab-mcp-core-server` process.
+- Put cleanup in `try`/`catch` or `onCleanup` so it runs after errors, timeouts, or failed simulations.
 
 ## Workflow
 
@@ -85,7 +102,7 @@ Ask the user only when required input files or runtime dependencies are missing,
    - Create one TestGroup and multiple Test rows.
    - Each Test should describe one functional coverage target.
    - In `Test Case Description`, state the test method such as boundary value, equivalence class, requirement analysis, or coverage feedback.
-   - In `Initialization`, assign all root inputs and any needed parameter overrides (`p Param = value;`).
+   - In each Test row's `Initialization`, assign all root inputs and any needed parameter overrides (`p Param = value;`). You may keep common defaults in the TestGroup row for readability, but the final Test row must be independently runnable.
    - In `Action`, step inputs over time with `[+100ms]`, `[+0.2s]`, etc.
    - Expand vector root inputs into element assignments, for example `EMTqFil_dtqIncGrdt 1=5000;` through `EMTqFil_dtqIncGrdt 4=5000;`.
    - Add a final `[+0.1s]` or equivalent final delay at the end of every Test `Action`.
@@ -99,7 +116,7 @@ Ask the user only when required input files or runtime dependencies are missing,
 
 4. **Build the Excel**
    - Start from `assets/templates/tcsd_template.xlsx`; do not create a fresh workbook from scratch.
-   - Either edit a copy of the template directly or create a JSON spec and run `scripts/build_tcsd_from_json.py --template <skill_dir>/assets/templates/tcsd_template.xlsx`.
+   - Either edit a copy of the template directly or create a JSON spec and run `scripts/build_tcsd_from_json.py --template <skill_dir>/assets/templates/tcsd_template.xlsx`. The builder merges `test_group.initialization_1/2` into every Test row and lets each Test's own `initialization` override the shared defaults.
    - Keep sheet name `TCSD`, columns, row 2 `TestGroup`, freeze pane, comments/status options, cell styles, and reviewed status consistent with the template.
 
 5. **Backfill expected outputs from simulation**
@@ -111,10 +128,15 @@ Ask the user only when required input files or runtime dependencies are missing,
 6. **Verify**
    - Run `unzip -t` on the output workbook.
    - Inspect the TCSD sheet with a spreadsheet library or artifact-tool.
+   - Check every Test row has the full root-input initialization set needed to run by itself; reject workbooks where Tests only contain sparse deltas and depend on TestGroup inheritance.
    - Check there are no internal-signal expectations and no unsupported input values exposed by simulation.
    - Check that stateful top-level outputs are either backed by verified stable post-delay simulation evidence or omitted from the affected Test. Never leave a state-machine output expected to stay at its initialization value merely because the first action begins with a delay.
    - Check the workbook Actions themselves for Logical Operator MC/DC: each traceable AND/OR group must have TCSD input assignments that realize the required truth vectors. If a truth vector cannot be traced to root inputs or scalar parameters, do not add a fake coverage row or claim it covered.
    - If model coverage evidence is available, use it to confirm or refine the generated MC/DC obligations. Coverage feedback is not a prerequisite for generating AND/OR MC/DC cases.
+
+7. **Clean MATLAB session**
+   - Run the cleanup contract above before returning the final artifact JSON.
+   - Mention any cleanup failure in the task summary or warnings so the platform can surface that the next task may need a fresh MATLAB session.
 
 ## References
 

@@ -124,6 +124,8 @@ For larger modules such as HvGrid, many root outputs may be vectors or unsupport
 
 For vector root inputs in the final TCSD workbook, expand values element by element, for example `EMTqFil_dtqIncGrdt 1=5000;` through `EMTqFil_dtqIncGrdt 4=5000;`. Do not leave whole-vector assignments such as `EMTqFil_dtqIncGrdt = [5000 5000 5000 5000];` unless the downstream importer has been explicitly confirmed to accept them.
 
+Every Test row must be self-contained. Keep common startup values in the JSON TestGroup if helpful, but build the final workbook so each `Type = Test` row repeats the full root-input initialization set with its own overrides applied. Some downstream runners and the simulation extraction script execute a Test row directly and do not inherit TestGroup cells.
+
 Every Test `Action` should end with a final relative delay marker such as `[+0.1s]` so the runner has a short interval after the last assignment or expectation.
 
 ### Parameter Overrides for Coverage

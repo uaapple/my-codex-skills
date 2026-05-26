@@ -26,6 +26,7 @@ This workbook is the downstream automatic test software's expected TCSD input fo
 - Row 2 is a `TestGroup`.
 - Test rows use `Type = Test` and `Work Status = reviewed`.
 - Preserve template style, comments/status options, row conventions, and freeze pane.
+- Every final `Type = Test` row must be self-contained. Its `Initialization` cell must include the full deterministic startup assignment set for all root inputs used by the model, not just deltas from the TestGroup row.
 
 ## Initialization
 
@@ -39,6 +40,8 @@ p ParamName_C = 1;
 ```
 
 Use `p Param = value;` for parameter overrides.
+
+Do not rely on downstream tools inheriting TestGroup initialization. TestGroup initialization may be kept as a readable common-default block, but final Test rows must repeat the merged defaults. When a Test needs a different value, put that assignment in the Test row and let it override the common default.
 
 For vector root inputs, use element assignments unless the target importer is explicitly confirmed to support whole-vector syntax:
 
@@ -128,6 +131,7 @@ Before finishing, check:
 - No `expValue(value,duration,offset)` is used as a numeric tolerance. If the 3-argument form is present, the output must be stable over that offset/duration window.
 - No internal signals, local logging names, or `out_mil_ec` names are present.
 - No root-input assignment uses whole-vector bracket syntax unless importer support was explicitly confirmed.
+- Every `Type = Test` row has complete startup inputs in its own `Initialization` cell; no Test row is empty or contains only sparse overrides unless the model truly has no other root inputs.
 - Every Test `Action` ends with a final relative delay marker such as `[+0.1s]`.
 - Selector values are in valid model ranges.
 - Uncovered `MinMax`, `MultiPortSwitch`, and `Saturate` outcomes are either covered by supplemental tests or explicitly justified as unreachable/invalid for simulation.

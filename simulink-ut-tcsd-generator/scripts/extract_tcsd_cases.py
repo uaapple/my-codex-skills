@@ -59,6 +59,20 @@ def parse_assignments(text: str, input_names: set[str]) -> tuple[dict[str, objec
     return inputs, params
 
 
+def merge_assignments(
+    base_inputs: dict[str, object],
+    base_params: dict[str, object],
+    override_inputs: dict[str, object],
+    override_params: dict[str, object],
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Merge TestGroup defaults with Test-specific assignments."""
+    inputs = dict(base_inputs)
+    params = dict(base_params)
+    inputs.update(override_inputs)
+    params.update(override_params)
+    return inputs, params
+
+
 def delay_seconds(amount: str, unit: str) -> float:
     value = float(amount)
     return value / 1000.0 if unit.lower() == "ms" else value
@@ -101,11 +115,23 @@ def main() -> int:
     input_names = {name.strip() for name in args.inputs.split(",") if name.strip()}
     wb = load_workbook(args.workbook)
     ws = wb["TCSD"]
+    group_inputs: dict[str, object] = {}
+    group_params: dict[str, object] = {}
+    for row in range(1, ws.max_row + 1):
+        if ws.cell(row, 3).value != "TestGroup":
+            continue
+        for offset in range(0, 2):
+            inputs, params = parse_assignments(ws.cell(row + offset, 6).value or "", input_names)
+            group_inputs.update(inputs)
+            group_params.update(params)
+        break
+
     tests = []
     for row in range(1, ws.max_row + 1):
         if ws.cell(row, 3).value != "Test":
             continue
-        init_inputs, init_params = parse_assignments(ws.cell(row, 6).value or "", input_names)
+        test_inputs, test_params = parse_assignments(ws.cell(row, 6).value or "", input_names)
+        init_inputs, init_params = merge_assignments(group_inputs, group_params, test_inputs, test_params)
         tests.append(
             {
                 "row": row,
