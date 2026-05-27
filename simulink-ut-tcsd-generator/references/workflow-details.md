@@ -70,6 +70,25 @@ Do not pipe `.slx`/zip/XML output directly into an interpreter such as `python3 
 
 Do not use XML alone for final values. Run simulation after drafting the stimuli.
 
+## State Transition Path Tracing
+
+Before writing TCSD rows for a Stateflow chart, enum state output, latch, edge-triggered path, or state-machine-like mode/gear output, trace the transition path back to root inputs or scalar parameters.
+
+- Read Stateflow transition labels, entry/exit actions, and guard conditions where available.
+- Cross-check upstream `Switch` and `RelationalOperator` criteria that gate the transition, including brake, door, seatbelt, ready, authentication, speed, voltage, mode, and fault-validity prerequisites.
+- Resolve enum and constant values from the loaded MAT/init/data dictionary/model workspace before writing TCSD assignments.
+- Do not assume setting one request signal is enough. A request such as `icgsm_stGearShiftLvrPosnReq = 4` is only useful after the prerequisite gates that allow the state transition are also true.
+- When the exact path is uncertain, keep the Test wording as "request", "target", or "attempt" until simulation/probe evidence proves the state was reached.
+
+## State Transition Hold Timing
+
+State transitions often need more time than a single short step because filters, debounce logic, LowPass blocks, StopWatch/Delay blocks, and chart entry/exit actions may sit upstream.
+
+- Prefer measured probe timing when available.
+- If model timing parameters are known, hold for at least `max(2*sampleTime, known filter/debounce/timeout delay + margin)`.
+- If timing is unknown, use a conservative sequence: set all prerequisites, hold around `[+1s]`, change the request or triggering input, then hold another `[+1s]` before checking state outputs.
+- Avoid combining several state transitions such as P -> R -> N -> D in one Test unless each step has distinct stimulus, sufficient hold time, and simulation evidence that the expected state actually changed. Split the sequence when a failed transition would otherwise make every step show the same default outputs.
+
 ## Coverage Heuristics
 
 For each major subsystem, create one or more Test rows that cover:
@@ -118,6 +137,8 @@ Use simulation to compute expected values for top-level outputs only. If interna
 For ramped outputs, do not write a single hold-style expectation. TCSD keeps or window-checks the sampled expected value over time, so a sampled ramp value becomes a wrong constant expectation. Prefer omitting that output from the Test, or generate a separate dense 10 ms staircase only when the user explicitly wants ramp-shape checking.
 
 State-machine and history-feedback outputs need an additional guard. If a root Outport is sourced by a Stateflow Chart, UnitDelay/Delay/Memory, latch, edge detector, or `*_Old` feedback path, treat it as stateful. Do not fill it from a nominal initial value in every step. A line after `[+500ms]` is checked after the 500 ms delay, so the correct value is the state reached after the delay, not the initialization state. If full simulation/MQTester-equivalent evidence is missing or conflicts with the downstream report, exclude that output from expected values for the affected Test.
+
+After backfill, cross-check state/gear/mode claims against the output expectations. If a Test description or Action comment says a transition succeeded but the corresponding top-level output still has the previous/default value, the result is not deliverable: fix the prerequisite inputs or hold timing, or rewrite the text to describe a blocked/not-reached path.
 
 Do not let expected-output stability rules reduce stimulus coverage. It is acceptable for a Test to exist mainly to cover a decision outcome and contain few or no `expValue(...)` lines for dynamic outputs.
 

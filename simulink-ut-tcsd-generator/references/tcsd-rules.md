@@ -113,6 +113,15 @@ For stateful top-level outputs fed by Stateflow Charts, UnitDelay/Delay/Memory, 
 
 Stimulus coverage and expected-output backfill are separate concerns. Keep a Test/action step when it is needed to cover a decision outcome even if the relevant top-level output is dynamic and therefore omitted from expected outputs.
 
+### Semantic Consistency After Backfill
+
+After simulation backfill, Test names, descriptions, and Action comments must agree with the returned top-level output expectations.
+
+- Before simulation, transition wording should describe the request or target, for example "request D" or "attempt P -> D".
+- After backfill, do not say a state, gear, or mode was reached unless the matching top-level `expValue(...)` proves it at that step.
+- If text says "shifted to D" or "entered charging mode" but the related output expectation still shows the old/default state, the Test is inconsistent. Either the stimulus/hold timing failed to trigger the transition, or the description/comment is wrong. Repair one of those before delivery.
+- A semantic mismatch is a quality-gate failure even when the workbook opens and every `expValue(...)` line is syntactically valid.
+
 ## Multidimensional Signals
 
 The UT guidance shows vector I/O can use macro syntax such as:
@@ -136,4 +145,5 @@ Before finishing, check:
 - Selector values are in valid model ranges.
 - MultiPortSwitch invalid-selector errors have been repaired by changing stimulus, settle time, or justified scalar overrides; they are not hidden by global diagnostic suppression in normal generation.
 - Uncovered `MinMax`, `MultiPortSwitch`, and `Saturate` outcomes are either covered by supplemental tests or explicitly justified as unreachable/invalid for simulation.
+- Any Test name, description, or Action comment claiming a state/gear/mode was reached matches the relevant top-level output `expValue(...)`. If the output still shows the old/default state, revise the stimulus/hold timing or rewrite the text as a blocked/not-reached path.
 - Workbook opens and imports.

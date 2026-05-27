@@ -26,9 +26,11 @@ By default, you must:
 - Simulate successfully when possible, then backfill only stable top-level output expectations from simulation results.
 - Avoid hold-style expected values for dynamic, ramping, or continuously changing outputs.
 - Build the Excel workbook from `assets/templates/tcsd_template.xlsx`; this bundled template is the canonical TCSD input format expected by the downstream automatic test software.
+- In Hermes/production runs, build and verify the workbook before any simulation, coverage run, or expected-output backfill. This workbook is an early checkpoint, not a completed deliverable until simulation-backed top-level `expValue(...)` expectations have been added.
 - Make every final `Type = Test` row self-contained: its `Initialization` cell must include all root inputs needed for deterministic startup. Do not rely on the TestGroup row, previous Test rows, or hidden runner inheritance for required inputs.
 - Write the templated workbook to `outputs/<model>_Test0001_tcsd.xlsx`, or the next versioned filename if that output already exists.
-- Deliver the Excel workbook as the required output. Generation JSON/spec/simulation files may be used as internal script artifacts when helpful, but do not require a separate validation report unless the user explicitly asks for one.
+- Deliver the Excel workbook with `expValue(...)` expectations as the required output. Generation JSON/spec/simulation files may be used as internal script artifacts when helpful, but do not require a separate validation report unless the user explicitly asks for one.
+- If a post-workbook simulation or backfill MATLAB/MCP/SATK call times out once, including a 600s MCP timeout, stop retrying simulation/backfill in the same request and return `status=failed` with a clear warning rather than marking a workbook without expectations as completed.
 - Leave MATLAB clean after the task: close any model or library loaded from the task workspace, clear task-local variables, restore MATLAB path/current folder when possible, and stop task-owned MCP/SATK sessions so later Hermes tasks cannot inherit stale loaded models.
 
 Ask the user only when required input files or runtime dependencies are missing, or when the model cannot be loaded after applying the bundled support package.
@@ -43,6 +45,7 @@ Ask the user only when required input files or runtime dependencies are missing,
 - Copy `assets/support-package` into the working folder before loading the model unless the project already has equivalent Cornex/ITK dependencies.
 - Treat MATLAB as a reusable long-lived process unless `SATK_MATLAB_SESSION_MODE=new` guarantees isolation. At task start, close any preloaded model/library whose loaded file path is outside the current workspace before loading the current workspace copy. At task end, run the cleanup rules in **MATLAB Cleanup Contract** even after failures.
 - Use `assets/templates/tcsd_template.xlsx` as the required TCSD workbook template. Preserve its `TCSD` sheet, columns, row conventions, freeze pane, styles, comments/status options, and workbook structure so the downstream automatic test software can import it.
+- Artifact-first checkpoint rule for Hermes/production: do not call `simulate_tcsd_cases`, `sim`, coverage APIs, or expected-output backfill until `outputs/<model>_Test0001_tcsd.xlsx` or the next versioned workbook has been written and basic workbook validation has passed. Final success still requires simulation-backed top-level `expValue(...)`.
 - Treat TestGroup initialization as documentation/common defaults only. The final workbook must repeat the merged defaults in each Test row, with Test-specific assignments overriding common values.
 - Write vector root-input assignments element by element in TCSD, for example `Sig 1=5000;`, `Sig 2=5000;`. Do not write whole-vector input assignments like `Sig = [5000 5000];` unless the target importer has been explicitly confirmed to support them.
 - End every Test `Action` with a final relative delay marker such as `[+0.1s]` so the target has a run/sampling interval after the last assignment or expectation. Do not let a Test end on an input assignment or `expValue(...)` line.
@@ -52,6 +55,9 @@ Ask the user only when required input files or runtime dependencies are missing,
 - Do not write hold-style expectations for outputs that keep changing before the next action step. Backfill only outputs that are stable across the following hold interval; omit ramping outputs from that Test unless deliberately generating dense per-sample staircase expectations.
 - Treat top-level outputs sourced from Stateflow Charts, UnitDelay/Delay/Memory blocks, latches, edge detectors, or `*_Old` feedback as stateful expected-output risks. Do not fill them from initial/default/static values. Write `expValue(...)` for these outputs only when a full simulation or MQTester-equivalent result confirms the post-delay value is stable across the checked interval; otherwise omit those outputs from that Test.
 - Remember TCSD delay semantics: expectations written after `[+500ms]` are checked in the interval after that delay, not at the initialization instant. Stateful outputs must reflect the state reached after the delay has elapsed.
+- Treat state, gear, and mode transition claims as a delivery gate. A Test name, description, or Action comment may describe the requested or target transition before simulation, but after backfill it must not claim that a state was reached unless the relevant top-level `expValue(...)` proves the same state. If a comment says "shifted to D" while `GearLvr_stDrvGear = expValue(...)` still shows the old/default state, repair the stimulus or hold timing, or rewrite the description as a blocked/not-reached path before delivery.
+- Before designing Tests for Stateflow charts, enum state outputs, latches, edge detectors, or state-machine-like mode logic, trace the transition path from chart conditions, Switch/RelationalOperator gates, and prerequisite enables back to root inputs or scalar parameters. Do not assume a request signal alone, such as a gear or mode request, is sufficient to reach the target state.
+- For Stateflow or state-machine transition Tests, use enough hold time for upstream filters, debounce logic, LowPass blocks, StopWatch/Delay blocks, and chart entry/exit actions to settle. Prefer measured probe timing when available; otherwise use a conservative sequence such as prerequisites held for `[+1s]`, request change, then another `[+1s]` hold, or `max(2*sampleTime, known filter/debounce delay + margin)` when those parameters are known.
 - Generate tests for coverage first: enable/disable branches, threshold sides, limiters, lookup-table regions, delay/latch behavior, divide-by-zero protection, and mode switches.
 - Treat decision outcomes as explicit coverage obligations. For `MinMax`, make each input become the selected output at least once. For `MultiPortSwitch`, cover every valid selector value and the default/otherwise branch when present. For `Saturate`, cover below-low, pass-through, and above-high regions.
 - If simulation fails because a `MultiPortSwitch` selector value is invalid, treat it as a stimulus/design problem first. Use the `simulate_tcsd_cases.m` diagnostic summary to identify the block, selector source, and indexing mode, then repair TCSD inputs or safe scalar overrides. Do not silently set `DiagnosticForDefault=None` for all MPS blocks in normal generation.
@@ -104,12 +110,15 @@ Hermes may reuse the same MATLAB desktop/session across generation tasks. Always
    - Create one TestGroup and multiple Test rows.
    - Each Test should describe one functional coverage target.
    - In `Test Case Description`, state the test method such as boundary value, equivalence class, requirement analysis, or coverage feedback.
+   - Before drafting a Test whose target is a Stateflow transition, enum state output, latch, edge-triggered path, or mode state machine, trace the exact prerequisites and transition conditions back to root inputs or scalar parameters. Use Stateflow entry/exit conditions plus upstream Switch/RelationalOperator criteria as the authority; do not assume one request input reaches the target state by itself.
    - In each Test row's `Initialization`, assign all root inputs and any needed parameter overrides (`p Param = value;`). You may keep common defaults in the TestGroup row for readability, but the final Test row must be independently runnable.
    - In `Action`, step inputs over time with `[+100ms]`, `[+0.2s]`, etc.
+   - For state-machine transitions, first set all prerequisites, hold long enough for filters/debounce paths to settle, then change the request signal, then hold again for chart entry/exit actions. If no model-specific delay is known, prefer `[+1s]` to `[+2s]` transition holds over short `[+500ms]` assumptions.
    - Expand vector root inputs into element assignments, for example `EMTqFil_dtqIncGrdt 1=5000;` through `EMTqFil_dtqIncGrdt 4=5000;`.
    - Add a final `[+0.1s]` or equivalent final delay at the end of every Test `Action`.
    - Use explicit time units (`s`, `ms`, etc.), terminate executable statements with English semicolons, and write comments with `//`.
-   - Describe input/output meanings or condition changes in `Action` comments when they clarify the coverage target.
+   - Describe input/output meanings or condition changes in `Action` comments when they clarify the coverage target. Before simulation, use "request/target/attempt" wording for transitions; after backfill, use "reached/shifted/entered" wording only when the corresponding top-level output expectation proves that state.
+   - Avoid combining several state transitions such as P -> R -> N -> D in one Test unless each step has distinct stimulus, sufficient hold time, and simulation evidence that the expected state actually changed. Split the sequence into narrower Tests when a failed transition would otherwise make every step look like the same default output.
    - Add targeted supplemental Tests for uncovered `MinMax`, `MultiPortSwitch`, `Saturate`, `Logical Operator`, relational, and selector outcomes before optimizing for compactness.
    - Do not wait for MQTester reports or chat history to cover AND/OR logic. In the first production workbook, include TCSD actions that realize the derived MC/DC truth vectors for model-visible AND/OR blocks where the upstream conditions can be traced to root inputs or scalar parameters.
    - For each supplemental Test, record the exact missing decision outcome it targets. Do not count it as closed merely because the stimulus appears plausible.
@@ -120,13 +129,17 @@ Hermes may reuse the same MATLAB desktop/session across generation tasks. Always
    - Start from `assets/templates/tcsd_template.xlsx`; do not create a fresh workbook from scratch.
    - Either edit a copy of the template directly or create a JSON spec and run `scripts/build_tcsd_from_json.py --template <skill_dir>/assets/templates/tcsd_template.xlsx`. The builder merges `test_group.initialization_1/2` into every Test row and lets each Test's own `initialization` override the shared defaults.
    - Keep sheet name `TCSD`, columns, row 2 `TestGroup`, freeze pane, comments/status options, cell styles, and reviewed status consistent with the template.
+   - In Hermes/production, immediately run the basic workbook validation (`unzip -t` and a quick `TCSD` sheet/root-input check) after this step. If later simulation/backfill fails or times out, this workbook is only an incomplete checkpoint.
 
 5. **Backfill expected outputs from simulation**
+   - Run this step only after the workbook exists and has passed basic validation.
+   - In Hermes/production, expected-output backfill is required for a completed task. If a MATLAB/MCP/SATK call for simulation or backfill times out once, stop this step, do not retry `sim()` or coverage exploration in the same request, and report the task as failed/partial rather than completed.
    - Extract actions with `scripts/extract_tcsd_cases.py`.
    - Run `scripts/simulate_tcsd_cases.m` through `scripts/satk_eval.py`. In Hermes or Windows VM production, configure the environment variables documented in `references/hermes-agent-handoff.md` before running SATK.
    - If simulation reports `simulate_tcsd_cases:InvalidMultiPortSwitchSelector`, inspect the diagnostic block list and fix the selector-driving inputs, hold time, or safe scalar parameter overrides before backfilling.
    - Apply results with `scripts/backfill_expected_outputs.py`. Pass any unverified stateful outputs as `--exclude-outputs` so they are removed from expectations instead of being filled with misleading default states.
    - Validate that every `expValue(...)` left side is a root Outport.
+   - Validate that the final workbook contains `expValue(...)` expectations before reporting success. A workbook with only stimuli is not a completed TCSD deliverable for automated test execution.
 
 6. **Verify**
    - Run `unzip -t` on the output workbook.
@@ -134,6 +147,7 @@ Hermes may reuse the same MATLAB desktop/session across generation tasks. Always
    - Check every Test row has the full root-input initialization set needed to run by itself; reject workbooks where Tests only contain sparse deltas and depend on TestGroup inheritance.
    - Check there are no internal-signal expectations and no unsupported input values exposed by simulation.
    - Check that stateful top-level outputs are either backed by verified stable post-delay simulation evidence or omitted from the affected Test. Never leave a state-machine output expected to stay at its initialization value merely because the first action begins with a delay.
+   - Cross-check semantic claims after backfill: if a Test name, description, or Action comment says a state/gear/mode was reached, the corresponding top-level `expValue(...)` must show that same state at that step. If not, repair the stimulus/hold timing or rewrite the text before delivery.
    - Check the workbook Actions themselves for Logical Operator MC/DC: each traceable AND/OR group must have TCSD input assignments that realize the required truth vectors. If a truth vector cannot be traced to root inputs or scalar parameters, do not add a fake coverage row or claim it covered.
    - If model coverage evidence is available, use it to confirm or refine the generated MC/DC obligations. Coverage feedback is not a prerequisite for generating AND/OR MC/DC cases.
 
