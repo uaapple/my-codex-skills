@@ -179,6 +179,31 @@ By default, call `scripts/backfill_expected_outputs.py --outputs` with every sca
 - Omit vector root outputs unless the target TCSD/MQT vector macro syntax and element mapping are confirmed.
 - A smaller output allowlist is acceptable only for a documented importer/readability/performance limit or an intentionally narrow diagnostic run.
 
+## Continuous Output Plausibility
+
+Continuous physical outputs need an engineering-scale sanity check after backfill.
+
+Treat root Outports as continuous when names or metadata indicate power, torque, voltage, current, speed, temperature, SOC, pressure, gradient, limit, maximum/minimum, peak, continuous, or threshold quantities. Examples include `pwr*`, `tq*`, voltage/current/speed/temperature/SOC signals, `*Max*`, `*Min*`, `*Peak*`, `*Contns*`, and `*Lim*`.
+
+For each continuous output:
+
+- compare values across Tests and action steps;
+- flag unexplained `expValue(0)` or `expValue(1)` for non-Boolean continuous outputs;
+- flag order-of-magnitude jumps relative to neighboring steps or same-family outputs;
+- flag implausible family ordering, such as peak/maximum limits lower than continuous limits, unless model logic explains it;
+- flag default/sentinel values when the Test claims a limiting path is active.
+
+Suspicious values are not automatically wrong, but they must be justified with simulation/probe evidence, repaired by changing stimulus/hold timing and rerunning backfill, or omitted from the affected Test. Do not return a reviewed workbook with unexplained rows such as `pwrMax... = expValue(1)` when neighboring power expectations are in the thousands or tens of thousands.
+
+## Output Family Consistency
+
+Group related outputs before final validation:
+
+- Boolean `b*` outputs may use `0`/`1`.
+- Enum/state `st*` outputs may use small integers when resolved from model constants.
+- Continuous family outputs such as `pwrMax*`, `pwrPeak*`, `pwrContns*`, torque limits, voltage/current limits, SOC limits, and threshold/limit signals should remain in a plausible engineering scale unless model evidence says otherwise.
+- Charge/discharge sign conventions and zero-limit protective states must be explained when they produce values that look unusual.
+
 ## State Transition Design Rules
 
 For Stateflow charts, enum state outputs, latches, edge-triggered paths, and mode/gear state machines:
@@ -342,6 +367,8 @@ HvCoorn also exposed a state-machine expected-output failure pattern:
 - Every `expValue(...)` left-hand side is a top-level Outport.
 - No internal/local/MIL signal names appear as expected outputs.
 - No three-argument `expValue` is present unless it is intentionally checking a stable window.
+- Continuous physical outputs have no unexplained Boolean-scale `0`/`1` expectations, order-of-magnitude jumps, default/sentinel values, or impossible same-family ordering.
+- Output families such as `pwrMax*` / `pwrPeak*` / `pwrContns*` were checked together; Boolean `b*` and enum/state `st*` outputs were classified separately.
 - Vector outputs are omitted unless explicitly supported.
 - Vector root inputs are not written as whole-vector bracket assignments in the final workbook.
 - Every Test `Action` has a final relative delay marker such as `[+0.1s]`.
