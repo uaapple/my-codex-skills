@@ -189,6 +189,8 @@ Here `4` is the vector output port index. Equivalent macro syntax can be used fo
 
 Before finishing, check:
 
+- The workbook was designed from a model-derived coverage-obligation matrix for Condition, Decision, and MCDC items, not only from scenario names or comments.
+- RelationalOperator equality banks are represented by actual TCSD root-input assignments for every compared constant and a valid non-matching baseline where applicable.
 - Every `expValue(...)` line uses a root Outport name.
 - No `expValue(value,duration,offset)` is used as a numeric tolerance. If the 3-argument form is present, the output must be stable over that offset/duration window.
 - No internal signals, local logging names, or `out_mil_ec` names are present.
@@ -198,6 +200,7 @@ Before finishing, check:
 - Selector values are in valid model ranges.
 - MultiPortSwitch invalid-selector errors have been repaired by changing stimulus, settle time, or justified scalar overrides; they are not hidden by global diagnostic suppression in normal generation.
 - Uncovered `MinMax`, `MultiPortSwitch`, and `Saturate` outcomes are either covered by supplemental tests or explicitly justified as unreachable/invalid for simulation.
+- Uncovered `RelationalOperator`, `Switch`, `Abs`, and AND/OR MC/DC outcomes are either covered by TCSD assignments that drive the relevant block input, explicitly justified as unreachable/invalid, or reported as unresolved. A Test description that names a condition is not enough.
 - `backfill_expected_outputs.py --outputs` was given all scalar root Outports unless a documented exception applies; unverified stateful outputs are excluded through `--exclude-outputs`.
 - Continuous physical outputs passed the plausibility gate: unexplained Boolean-scale values, large order-of-magnitude jumps, default/sentinel values, and impossible family ordering were justified, repaired, or omitted.
 - Output family consistency was checked for groups such as `pwrMax*` / `pwrPeak*` / `pwrContns*`; Boolean `b*` and enum/state `st*` outputs are not judged by continuous-output scale rules.
