@@ -149,7 +149,8 @@ At task completion, including failures:
 - Executable lines end with English semicolons.
 - Comments use `//`.
 - Keep comments practical: name the branch/selector/condition change being targeted.
-- For state, gear, or mode transitions, comments and descriptions should say "request/target/attempt" until simulation evidence proves the target state. After backfill, do not claim "shifted/entered/reached" unless the matching top-level output expectation proves it.
+- For state, gear, or mode transitions, comments and descriptions should say "request/target/attempt" until simulation evidence proves the target state. After backfill, do not claim "shifted/entered/reached" unless the matching top-level output expectation proves it in the same action step.
+- Inline comments that state concrete values, such as `stDrvGear=1(D)`, must match the corresponding `expValue(...)` line after backfill. If not, repair the stimulus and rerun backfill, rewrite the Test as blocked/not-reached/inhibited, or remove the claim.
 - Do not combine many state transitions into one Stateflow traversal Test unless every transition step has distinct stimulus, enough hold time, and simulation evidence that the state output changed as intended.
 
 ## Expected Output Rules
@@ -166,7 +167,17 @@ The biggest correctness issue in the thread was expected-output semantics:
 - If an output ramps or changes during the following hold interval, omit that output from the Test. Do not write one sampled value and then let the unit-test/MQT checker compare it as a held constant.
 - For Stateflow/state-machine/history-feedback outputs, omit expectations unless a full simulation or MQTester-equivalent trace confirms the stable post-delay value. Do not copy initialization/default values into later `[+delay]` intervals.
 - Stimulus coverage and expected-output coverage are separate. Keep a Test/action if it improves model coverage even when few outputs are stable enough to backfill.
-- Treat semantic consistency as a quality gate after backfill. If a Test says the model reached D, charging, ready, sleep, traction, or another named state/mode but the relevant top-level `expValue(...)` still shows the old/default value, repair the stimulus/prerequisites/hold timing or rewrite the Test as a blocked/not-reached path before returning the workbook.
+- Treat semantic consistency as a hard quality gate after backfill. For every claim that a state, gear, or mode was reached, identify the proof output, resolve the claimed value from model constants or trusted simulation evidence, and compare it with the `expValue(...)` lines in the same step. If a Test says the model reached D, charging, ready, sleep, traction, or another named state/mode but the relevant top-level `expValue(...)` still shows the old/default value, repair the stimulus/prerequisites/hold timing and rerun backfill, rewrite the Test as a blocked/not-reached path, or remove the success claim before returning the workbook. Do not mark mismatched Tests as `reviewed`.
+
+## Default Backfill Output Scope
+
+By default, call `scripts/backfill_expected_outputs.py --outputs` with every scalar root Outport discovered during model inspection.
+
+- Do not hand-select only a few outputs to keep Actions short; that hides simulation evidence.
+- Let the simulation `stable=false` metadata suppress ramping or dynamic outputs per Test.
+- Pass model-inspected stateful-risk outputs through `--exclude-outputs` unless a trusted trace proves stable post-delay behavior.
+- Omit vector root outputs unless the target TCSD/MQT vector macro syntax and element mapping are confirmed.
+- A smaller output allowlist is acceptable only for a documented importer/readability/performance limit or an intentionally narrow diagnostic run.
 
 ## State Transition Design Rules
 
@@ -177,6 +188,19 @@ For Stateflow charts, enum state outputs, latches, edge-triggered paths, and mod
 - Do not assume a request signal alone reaches the target state. Set all prerequisite gates first, such as brake, door, seatbelt, ready, authentication, speed, voltage, fault-validity, and mode enables.
 - Use enough hold time for filters, debounce logic, LowPass blocks, StopWatch/Delay blocks, and chart entry/exit actions. Prefer measured probe timing. If timing is unknown, hold prerequisites for around `[+1s]`, change the request/trigger, then hold another `[+1s]` before checking state outputs.
 - Split transitions into narrower Tests when one long sequence would make failures ambiguous.
+
+## Minimum Functional-Domain Coverage
+
+For models with recognizable functional domains, each present domain needs at least one independent Test, a clear merge reason, or an unreachable/invalid explanation:
+
+- fault and validity signal families such as `*SigErr`, `*Vld`, `*Flt`, `*FltLvl`, diagnostic enable/reset;
+- continuous threshold inputs such as speed, voltage, current, torque, temperature, slope, and pedal position, covering both sides of thresholds and equality where relevant;
+- mode/config enum inputs such as `stMod`, `stMode`, `stCfg`, gear request, charge mode, drive mode, scene mode;
+- Stateflow target states or transition families;
+- diagnostic/error paths such as `Diag`, `ErrCheck`, lock/unlock, stuck, plausibility, timeout;
+- special operating modes such as APA/RPA, cruise/ACC, charging, anti-theft, wash, traction, camping, cart, OTA, and similar model-visible feature gates.
+
+Prefer splitting unrelated modes and diagnostic paths into focused Tests. Do not hide them inside one broad scenario when the resulting expected outputs cannot prove which condition actually changed.
 
 ## Coverage Design Rules
 

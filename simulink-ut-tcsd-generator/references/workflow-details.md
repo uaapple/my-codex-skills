@@ -127,6 +127,19 @@ For each major subsystem, create one or more Test rows that cover:
 
 Prefer fewer meaningful tests over many random tests. Coverage is the first priority, but invalid selector values that make the model stop are not useful unit-test cases unless the test explicitly targets diagnostic behavior.
 
+## Minimum Functional-Domain Density
+
+For models with identifiable functional domains, build a short checklist before writing the workbook. Each present domain needs at least one independent Test, a clear merge reason, or an unreachable/invalid explanation.
+
+- Fault and validity signal families: inputs such as `*SigErr`, `*Vld`, `*Flt`, `*FltLvl`, and diagnostic enable/reset signals should be covered by family, with safety-critical or output-dominant signals split into their own Tests.
+- Continuous thresholds and boundary inputs: inputs such as speed, voltage, current, torque, temperature, slope, and pedal position should cover both sides of each decision threshold; use below/at/above when equality behavior matters.
+- Mode/config enums: inputs such as `stMod`, `stMode`, `stCfg`, gear requests, charge modes, drive modes, and scene modes should cover each model-visible configuration that gates logic.
+- Stateflow target states: every reachable target state or transition family should have a focused Test or a documented reason for grouping.
+- Diagnostic/error paths: `Diag`, `ErrCheck`, lock/unlock, stuck, sensor plausibility, and timeout paths should not be hidden inside nominal mode Tests when they drive distinct outputs.
+- Special operating modes: APA/RPA, cruise/ACC, charging, anti-theft, wash, traction, camping, cart, OTA, and similar feature gates should be split when present and model-visible.
+
+Do not combine many unrelated modes or many Stateflow transitions into one broad traversal Test unless every step has distinct stimulus, enough hold time, and simulation evidence proving the intended output change. If the expected outputs remain identical across all steps, split or rewrite the Tests before delivery.
+
 ## Coverage Feedback Loop
 
 When a coverage report or screenshot shows uncovered decisions:
@@ -155,7 +168,9 @@ For ramped outputs, do not write a single hold-style expectation. TCSD keeps or 
 
 State-machine and history-feedback outputs need an additional guard. If a root Outport is sourced by a Stateflow Chart, UnitDelay/Delay/Memory, latch, edge detector, or `*_Old` feedback path, treat it as stateful. Do not fill it from a nominal initial value in every step. A line after `[+500ms]` is checked after the 500 ms delay, so the correct value is the state reached after the delay, not the initialization state. If full simulation/MQTester-equivalent evidence is missing or conflicts with the downstream report, exclude that output from expected values for the affected Test.
 
-After backfill, cross-check state/gear/mode claims against the output expectations. If a Test description or Action comment says a transition succeeded but the corresponding top-level output still has the previous/default value, the result is not deliverable: fix the prerequisite inputs or hold timing, or rewrite the text to describe a blocked/not-reached path.
+By default, pass every model-derived scalar root Outport to `backfill_expected_outputs.py --outputs`. Let the simulation `stable=false` flags suppress dynamic outputs, and use `--exclude-outputs` for unverified stateful-risk outputs. Do not hand-pick a small output subset unless the reason is documented, such as confirmed importer limits or a narrow diagnostic run. Vector outputs remain omitted unless the TCSD vector macro mapping is known.
+
+After backfill, cross-check state/gear/mode claims against the output expectations. For each claim, identify the proof output, resolve the claimed numeric value from model constants or trusted simulation evidence, and compare it with `expValue(...)` in the same step. If a Test description or Action comment says a transition succeeded but the corresponding top-level output still has the previous/default value, the result is not deliverable: fix the prerequisite inputs or hold timing and rerun backfill, rewrite the text to describe a blocked/not-reached path, or remove the success claim. Inline comments like `stDrvGear=1(D)` must match the corresponding `expValue(...)`.
 
 Do not let expected-output stability rules reduce stimulus coverage. It is acceptable for a Test to exist mainly to cover a decision outcome and contain few or no `expValue(...)` lines for dynamic outputs.
 
