@@ -38,6 +38,7 @@ Ask the user only when required input files or runtime dependencies are missing,
 ## Core Rules
 
 - Use Simulink Agentic Toolkit / MCP first for model understanding: `model_overview`, `model_read`, `model_query_params`, `model_resolve_params`, and `evaluate_matlab_code`.
+- Before treating direct `model_overview` / `model_read` as unavailable, check whether MATLAB says `函数或变量 'model_read' 无法识别` or cannot find `model_overview`. That usually means a previous `restoredefaultpath` removed SATK tool folders from the shared MATLAB session. Repair the MATLAB path first with `addpath(genpath(fullfile(satkRoot, 'tools')))` or by running `scripts/setup_ut_support.m`; do not immediately fall back to static SLX parsing.
 - If direct MATLAB MCP tools are unavailable, run `scripts/satk_eval.py` with a MATLAB code file.
 - For Hermes/production runs, make SATK startup deterministic: run `scripts/satk_eval.py` in an environment that allows the MCP server to create its local watchdog socket, and set a short ASCII `SATK_MCP_LOG_FOLDER` such as `C:\Temp\matlab-mcp-core-server-codex` on Windows or `/private/tmp/matlab-mcp-core-server-codex` on macOS. If initialization logs show `watchdog`, `socket file access timed out`, `bind: invalid argument`, or `bind: operation not permitted`, treat it as a runtime/sandbox problem and rerun SATK outside that sandbox rather than falling back to static SLX parsing.
 - Do not replace SATK/MCP/MATLAB model reading with static `.slx` XML parsing. Static XML is only a supplement after SATK/MCP/MATLAB has been attempted or used, and only for exact SIDs, block parameters, or connectivity.
@@ -99,6 +100,7 @@ Hermes may reuse the same MATLAB desktop/session across generation tasks. Always
 
 2. **Load and inspect the model**
    - Use SATK to load support paths, run `init_Global.m`, load the `.mat`, load `ITKLib.slx`, then load the model.
+   - After any MATLAB setup that calls `restoredefaultpath`, verify `which model_read` and `which model_overview` find SATK tool functions before calling direct MCP `model_read` / `model_overview`. If not, restore the SATK tools path as documented in `references/workflow-details.md`.
    - Derive root Inport and Outport order from the model, not from guesses.
    - Read the subsystem hierarchy and the blocks around Switch, Multiport Switch, Lookup Table, Delay, Latch, GradientLimiter, Safe_Divide, Min/Max, and logical operators.
    - For AND/OR `Logical Operator` blocks, identify immediate input sources and whether each port is driven by a root signal, relational comparison, enum equality, NOT, or nested logical expression. Use this to derive MC/DC truth vectors before writing the workbook.

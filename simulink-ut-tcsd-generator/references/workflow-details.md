@@ -9,6 +9,7 @@ For production/Hermes runs, keep SATK startup deterministic before loading the m
 - Set `SATK_MCP_LOG_FOLDER` to a short ASCII path. Recommended values are `C:\Temp\matlab-mcp-core-server-codex` on Windows and `/private/tmp/matlab-mcp-core-server-codex` on macOS.
 - For an unattended Windows VM, prefer `SATK_MATLAB_SESSION_MODE=new` plus `SATK_MATLAB_ROOT=C:\Program Files\MATLAB\R2026a` (adjust release/path as installed). Use `existing` only when MATLAB is deliberately pre-launched and reachable.
 - If the SATK toolkit is not under the default `%USERPROFILE%\.matlab\agentic-toolkits` or `~/.matlab/agentic-toolkits`, set `SATK_MCP_SERVER` and `SATK_MCP_EXTENSION` explicitly.
+- Direct MCP tools can be visible to the agent while MATLAB cannot find their backing functions. If `model_read` / `model_overview` fails with `函数或变量 'model_read' 无法识别`, repair MATLAB path first; this usually means a prior helper called `restoredefaultpath` in a shared MATLAB session.
 
 Use this MATLAB setup before `load_system(model)`:
 
@@ -16,6 +17,18 @@ Use this MATLAB setup before `load_system(model)`:
 rootDir = pwd;
 restoredefaultpath;
 rehash toolboxcache;
+satkRoot = getenv('SATK_SIMULINK_ROOT');
+if isempty(satkRoot)
+    homeDir = getenv('HOME');
+    if isempty(homeDir)
+        homeDir = getenv('USERPROFILE');
+    end
+    satkRoot = fullfile(homeDir, '.matlab', 'agentic-toolkits', 'simulink');
+end
+if exist(fullfile(satkRoot, 'tools'), 'dir')
+    addpath(satkRoot);
+    addpath(genpath(fullfile(satkRoot, 'tools')));
+end
 addpath(fullfile(rootDir, 'ITKCToolsV015', 'ModelingTools', '01_Csc'));
 addpath(fullfile(rootDir, 'ITKCToolsV015', 'GenLib'));
 addpath(rootDir);
@@ -23,7 +36,11 @@ run('init_Global.m');
 load('<model>.mat');
 load_system('ITKLib.slx');
 load_system('<model>.slx');
+assert(~isempty(which('model_read')), 'SATK model_read is not on the MATLAB path');
+assert(~isempty(which('model_overview')), 'SATK model_overview is not on the MATLAB path');
 ```
+
+`scripts/setup_ut_support.m` performs the same SATK tools path restoration after `restoredefaultpath`, and also restores the MATLAB MCP Core add-on path when it can find it. Keep that behavior in any copied or model-specific MATLAB helper so simulation/backfill does not leave a reused MATLAB session unable to service later `model_read` calls.
 
 If the original config references missing RTE/BSW custom code headers, attach a simulation-only config instead of changing the model file:
 

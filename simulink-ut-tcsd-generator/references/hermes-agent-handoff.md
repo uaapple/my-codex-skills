@@ -39,6 +39,7 @@ Only ask for clarification when the `.slx`, matching `.mat`, MATLAB/SATK runtime
 - MATLAB, Simulink, Simulink Agentic Toolkit, and the local SATK bridge are available.
 - The supplied `.mat` is the model-specific authority for signal objects, calibration objects, lookup tables, and parameter values.
 - The user normally provides only `<model>.slx` and `<model>.mat`; reusable Cornex/ITK dependencies must come from this skill.
+- Direct `model_read` / `model_overview` can appear in the agent tool list while MATLAB cannot find the backing SATK functions. If MATLAB reports `函数或变量 'model_read' 无法识别`, repair the SATK tools path first instead of treating MCP model reading as unavailable.
 
 If any of those assumptions are false, stop and report the missing runtime or file dependency before inventing cases.
 
@@ -71,6 +72,7 @@ cp -R <skill_dir>/assets/support-package/. <model_workdir>/
 
 - If `CornexCsc.Signal` or `CornexCsc.Parameter` is missing, MATLAB may load MAT variables as raw numeric arrays such as `uint32 [6x1]`. Fix the path, clear the workspace, and reload the MAT.
 - Add `ITKCToolsV015/ModelingTools/01_Csc`, `ITKCToolsV015/GenLib`, the model workdir, and the skill `scripts/` folder to the MATLAB path before loading/simulating.
+- If any helper calls `restoredefaultpath`, add the SATK root and `simulink/tools` tree back to the MATLAB path before later direct MCP calls. The bundled `scripts/setup_ut_support.m` does this automatically, and also restores the MATLAB MCP Core add-on path when it can find it; keep that behavior in copied model-specific helpers.
 - If the model’s original config references missing generated-code headers such as `rte_bsw_analog.h`, attach an in-memory `CodexSimOnlyCfg` and simulate with that. Do not edit the source `.slx`.
 - Load `ITKLib.slx` before the model if present.
 - Treat MATLAB as a reusable long-lived process unless production explicitly uses `SATK_MATLAB_SESSION_MODE=new`. If a model or library such as `ITKLib` is already loaded from a path outside the current workdir, close that loaded instance before loading the current workdir copy.
@@ -95,17 +97,18 @@ If the post-workbook simulation/backfill phase hits any MATLAB/MCP/SATK timeout 
 2. Copy `assets/support-package/.` into the workdir.
 3. Place the user’s `<model>.slx` and `<model>.mat` in the same workdir.
 4. Load support paths, run `init_Global.m`, load the MAT, load `ITKLib.slx`, then load the model.
-5. Derive root Inports and Outports from the model, including port order, data type, and dimensions. Do not guess.
-6. Inspect hierarchy and decision-producing blocks: Switch, RelationalOperator, Logical Operator, MinMax, MultiPortSwitch, Saturate, Lookup, Safe_Divide, Delay, Latch, StopWatch, LowPass, GradientLimiter.
-7. Build a coverage-obligation checklist before writing TCSD rows.
-8. Create a JSON spec or workbook draft, then build the final workbook from `assets/templates/tcsd_template.xlsx`.
-9. Validate workbook existence, sheet shape, self-contained Test initialization, final action delays, and Excel zip integrity before starting simulation/backfill.
-10. Extract TCSD actions to simulation JSON.
-11. Run one bounded simulation pass and export results.
-12. Backfill stable top-level output expectations when simulation succeeds within the time budget.
-13. Validate workbook shape, `expValue` left-hand names, vector-output omissions, and Excel zip integrity.
-14. Run the MATLAB cleanup contract before returning the final artifact JSON.
-15. If coverage feedback exists and the user explicitly asks for a repair iteration, add versioned supplemental Tests and repeat. Do not start unbounded repair loops during the first production generation task.
+5. Verify `which model_read` and `which model_overview` are nonempty after MATLAB setup. If not, restore the SATK tools path before deriving model facts.
+6. Derive root Inports and Outports from the model, including port order, data type, and dimensions. Do not guess.
+7. Inspect hierarchy and decision-producing blocks: Switch, RelationalOperator, Logical Operator, MinMax, MultiPortSwitch, Saturate, Lookup, Safe_Divide, Delay, Latch, StopWatch, LowPass, GradientLimiter.
+8. Build a coverage-obligation checklist before writing TCSD rows.
+9. Create a JSON spec or workbook draft, then build the final workbook from `assets/templates/tcsd_template.xlsx`.
+10. Validate workbook existence, sheet shape, self-contained Test initialization, final action delays, and Excel zip integrity before starting simulation/backfill.
+11. Extract TCSD actions to simulation JSON.
+12. Run one bounded simulation pass and export results.
+13. Backfill stable top-level output expectations when simulation succeeds within the time budget.
+14. Validate workbook shape, `expValue` left-hand names, vector-output omissions, and Excel zip integrity.
+15. Run the MATLAB cleanup contract before returning the final artifact JSON.
+16. If coverage feedback exists and the user explicitly asks for a repair iteration, add versioned supplemental Tests and repeat. Do not start unbounded repair loops during the first production generation task.
 
 ## MATLAB Cleanup Contract for Hermes
 
