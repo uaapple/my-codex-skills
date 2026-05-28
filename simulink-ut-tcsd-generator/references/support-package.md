@@ -1,8 +1,12 @@
-# Support Package
+# Project Addon Support Package
 
-The bundled `assets/support-package` contains the reusable Cornex/ITK files used to make module-level models load and simulate when the user supplies only `<model>.slx` and `<model>.mat`.
+Project-specific Cornex/ITK support files are now maintained as project addons outside this skill. In production and local Hermes runs, the platform/Hermes Agent selects a project by number and copies that addon's files into the workspace root before this skill starts.
+
+The skill still owns the canonical TCSD template and reusable scripts. The production default is no longer to copy a bundled `assets/support-package` from the skill.
 
 ## Contents
+
+After the addon is copied, the workspace may contain files such as:
 
 - `Cornex_Config.sldd`
 - `CornexMdlCfg.mat`
@@ -11,17 +15,23 @@ The bundled `assets/support-package` contains the reusable Cornex/ITK files used
 - `ITKCToolsV015/ModelingTools/01_Csc`
 - `ITKCToolsV015/GenLib`
 
-## Copy Pattern
+## Addon Source Locations
 
-For a new module model, copy support files into the model working folder:
+Project addon source directories are maintained by users outside the skill:
 
-```bash
-cp -R <skill_dir>/assets/support-package/. <model_workdir>/
+```text
+Windows production: C:\ProgramData\SoftwareDocGenerator\project-addons\<projectId>\
+Mac local dev: .local/project-addons/<projectId>
 ```
 
-`<skill_dir>` is the directory containing this skill's `SKILL.md`.
+For example, the 楚能 support package should be migrated to project `01`:
 
-Then place the user-provided `.slx` and `.mat` in the same folder.
+```text
+C:\ProgramData\SoftwareDocGenerator\project-addons\01\
+.local/project-addons/01
+```
+
+The platform/Hermes Agent copies the selected directory into the model working folder before invoking this skill. Then the user-provided `.slx` and `.mat` live in the same workspace and remain the authoritative model inputs.
 
 ## Known Failure Modes
 

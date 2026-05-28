@@ -19,7 +19,7 @@ Minimal user prompt is enough:
 
 By default, you must:
 
-- Copy `assets/support-package` into the model workdir before loading the model unless equivalent dependencies already exist there.
+- Assume the platform/Hermes Agent has already copied the selected project addon into the workspace root before this skill starts. Load project-specific support files such as `init_Global.m`, `ITKLib.slx`, `.sldd`, and tool folders from that workspace; do not copy the skill's old `assets/support-package` as the production default.
 - Use Simulink Agentic Toolkit / SATK for model reading and MATLAB evaluation.
 - Generate coverage-first unit-test cases, with decision coverage as the first optimization target.
 - Derive Condition, Decision, and MCDC obligations directly from the model before writing TCSD rows; external feedback documents or screenshots may inform future repairs, but they are not required generation inputs.
@@ -34,7 +34,7 @@ By default, you must:
 - If a post-workbook simulation or backfill MATLAB/MCP/SATK call times out once, including a 600s MCP timeout, stop retrying simulation/backfill in the same request and return `status=failed` with a clear warning rather than marking a workbook without expectations as completed.
 - Leave MATLAB clean after the task: close any model or library loaded from the task workspace, clear task-local variables, restore MATLAB path/current folder when possible, and stop task-owned MCP/SATK sessions so later Hermes tasks cannot inherit stale loaded models.
 
-Ask the user only when required input files or runtime dependencies are missing, or when the model cannot be loaded after applying the bundled support package.
+Ask the user only when required input files or runtime dependencies are missing, or when the model cannot be loaded after the project addon files prepared in the workspace have been applied.
 
 ## Core Rules
 
@@ -44,7 +44,7 @@ Ask the user only when required input files or runtime dependencies are missing,
 - For Hermes/production runs, make SATK startup deterministic: run `scripts/satk_eval.py` in an environment that allows the MCP server to create its local watchdog socket, and set a short ASCII `SATK_MCP_LOG_FOLDER` such as `C:\Temp\matlab-mcp-core-server-codex` on Windows or `/private/tmp/matlab-mcp-core-server-codex` on macOS. If initialization logs show `watchdog`, `socket file access timed out`, `bind: invalid argument`, or `bind: operation not permitted`, treat it as a runtime/sandbox problem and rerun SATK outside that sandbox rather than falling back to static SLX parsing.
 - Do not replace SATK/MCP/MATLAB model reading with static `.slx` XML parsing. Static XML is only a supplement after SATK/MCP/MATLAB has been attempted or used, and only for exact SIDs, block parameters, or connectivity.
 - Do not pipe `.slx`/zip/XML output directly into interpreters such as `python3 -c`, `perl`, `ruby`, or `node -e`. If static XML inspection is needed, use `scripts/inspect_slx_xml.py MODEL.slx --pattern REGEX` or a checked-in file-reading script.
-- Copy `assets/support-package` into the working folder before loading the model unless the project already has equivalent Cornex/ITK dependencies.
+- Load project support files from the current workspace. In platform/Hermes runs, those files must already have been copied from the selected project addon package into the workspace root before this skill starts; `assets/support-package` is no longer the production default source for project-specific Cornex/ITK dependencies.
 - Treat MATLAB as a reusable long-lived process unless `SATK_MATLAB_SESSION_MODE=new` guarantees isolation. At task start, close any preloaded model/library whose loaded file path is outside the current workspace before loading the current workspace copy. At task end, run the cleanup rules in **MATLAB Cleanup Contract** even after failures.
 - Use `assets/templates/tcsd_template.xlsx` as the required TCSD workbook template. Preserve its `TCSD` sheet, columns, row conventions, freeze pane, styles, comments/status options, and workbook structure so the downstream automatic test software can import it.
 - Artifact-first checkpoint rule for Hermes/production: do not call `simulate_tcsd_cases`, `sim`, coverage APIs, or expected-output backfill until `outputs/<model>_Test0001_tcsd.xlsx` or the next versioned workbook has been written and basic workbook validation has passed. Final success still requires simulation-backed top-level `expValue(...)`.
@@ -90,7 +90,7 @@ Hermes may reuse the same MATLAB desktop/session across generation tasks. Always
 - Before loading a model or library, if `bdIsLoaded(name)` is true and `get_param(name, "FileName")` points outside the current task workspace, close that loaded instance with `bdclose(name)` and then load the workspace copy.
 - At task completion, whether success or failure, close all task-loaded models/libraries whose `FileName` is under the current task workspace. Use `bdclose(modelName)` / `bdclose(libraryName)`; do not save them unless the user explicitly asked to modify the source model.
 - Clear task-local variables and simulation outputs with `clearvars` or a scoped cleanup script, but do not clear user/global MATLAB preferences or unrelated models that were open before the task.
-- Restore the original current folder and path when possible. If exact path restoration is unsafe, at least remove the task workspace, copied support-package paths, and skill script paths that were added during this run.
+- Restore the original current folder and path when possible. If exact path restoration is unsafe, at least remove the task workspace, project-addon support paths, and skill script paths that were added during this run.
 - If SATK/MCP started a task-owned MATLAB or MCP server process, shut it down cleanly. If the process remains and blocks later calls, report it and terminate only that task-owned stale `matlab-mcp-core-server` process.
 - Put cleanup in `try`/`catch` or `onCleanup` so it runs after errors, timeouts, or failed simulations.
 
@@ -98,11 +98,9 @@ Hermes may reuse the same MATLAB desktop/session across generation tasks. Always
 
 1. **Prepare workspace**
    - Confirm the user-provided `.slx` and matching `.mat` are in the working folder.
-   - Copy the support package:
-     ```bash
-     cp -R /path/to/skill/assets/support-package/. .
-     ```
-   - Keep the model-specific `.slx` and `.mat` supplied by the user as the authority.
+   - Confirm the project addon has already been copied into the workspace root by the platform/Hermes Agent. The addon is selected by project number, for example `01` or `02`, outside this skill.
+   - In production Windows runs, the 楚能-specific support package should live under `C:\ProgramData\SoftwareDocGenerator\project-addons\01\` and be copied to the workspace before invocation. In local Mac development, the equivalent source can be `.local/project-addons/01`.
+   - Do not copy the skill's old `assets/support-package` as a production default; keep the user-provided model-specific `.slx` and `.mat` as the authority if addon files contain similarly named examples or historical files.
 
 2. **Load and inspect the model**
    - Use SATK to load support paths, run `init_Global.m`, load the `.mat`, load `ITKLib.slx`, then load the model.
