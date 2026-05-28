@@ -39,7 +39,7 @@ Only ask for clarification when the `.slx`, matching `.mat`, MATLAB/SATK runtime
 - The agent runs on the same machine/user account that can read this skill directory.
 - MATLAB, Simulink, Simulink Agentic Toolkit, and the local SATK bridge are available.
 - The supplied `.mat` is the model-specific authority for signal objects, calibration objects, lookup tables, and parameter values.
-- The user normally provides only `<model>.slx` and `<model>.mat`; reusable project-specific Cornex/ITK dependencies must already be present in the workspace because the platform/Hermes Agent copied the selected project addon there.
+- The user normally provides only `<model>.slx` and `<model>.mat`; reusable project-specific dependencies must already be present in the workspace because the platform/Hermes Agent copied the selected project addon there.
 - Direct `model_read` / `model_overview` can appear in the agent tool list while MATLAB cannot find the backing SATK functions. If MATLAB reports `函数或变量 'model_read' 无法识别`, repair the SATK tools path first instead of treating MCP model reading as unavailable.
 
 If any of those assumptions are false, stop and report the missing runtime or file dependency before inventing cases.
@@ -60,7 +60,7 @@ C:\ProgramData\SoftwareDocGenerator\project-addons\01\
 .local/project-addons/01
 ```
 
-The copied workspace should then contain project files such as:
+The copied workspace contents are project-specific. File names, file types, folder layout, and file count may differ by project. The following are examples from a Cornex/ITK-style package, not required names for every project:
 
 - `Cornex_Config.sldd`
 - `CornexMdlCfg.mat`
@@ -69,16 +69,16 @@ The copied workspace should then contain project files such as:
 - `ITKCToolsV015/ModelingTools/01_Csc` including `+CornexCsc`
 - `ITKCToolsV015/GenLib`
 
-The skill should load these files from the current workspace. The skill still owns the canonical TCSD template and reusable scripts, but it should not copy the old `assets/support-package` as the production source of project dependencies.
+The skill should inspect the current workspace and load the actual support files found there. Add relevant support/tool folders to the MATLAB path, run initialization scripts only when present or explicitly identified, and load target-model-referenced libraries and data dictionaries from the workspace. The skill still owns the canonical TCSD template and reusable scripts, but it should not copy the old `assets/support-package` as the production source of project dependencies.
 
 ## Known Dependency Lessons
 
-- If `CornexCsc.Signal` or `CornexCsc.Parameter` is missing, MATLAB may load MAT variables as raw numeric arrays such as `uint32 [6x1]`. Fix the path, clear the workspace, and reload the MAT.
-- Add `ITKCToolsV015/ModelingTools/01_Csc`, `ITKCToolsV015/GenLib`, the model workdir, and the skill `scripts/` folder to the MATLAB path before loading/simulating.
+- For Cornex/ITK packages, if `CornexCsc.Signal` or `CornexCsc.Parameter` is missing, MATLAB may load MAT variables as raw numeric arrays such as `uint32 [6x1]`. Fix the path, clear the workspace, and reload the MAT.
+- Add the model workdir, the skill `scripts/` folder, and any actual project support/tool folders discovered in the workspace to the MATLAB path before loading/simulating. For Cornex/ITK packages, this usually includes folders such as `ITKCToolsV015/ModelingTools/01_Csc` and `ITKCToolsV015/GenLib`; other projects may use different names.
 - If any helper calls `restoredefaultpath`, add the SATK root and `simulink/tools` tree back to the MATLAB path before later direct MCP calls. The bundled `scripts/setup_ut_support.m` does this automatically, and also restores the MATLAB MCP Core add-on path when it can find it; keep that behavior in copied model-specific helpers.
 - If the model’s original config references missing generated-code headers such as `rte_bsw_analog.h`, attach an in-memory `CodexSimOnlyCfg` and simulate with that. Do not edit the source `.slx`.
-- Load `ITKLib.slx` before the model if present.
-- Treat MATLAB as a reusable long-lived process unless production explicitly uses `SATK_MATLAB_SESSION_MODE=new`. If a model or library such as `ITKLib` is already loaded from a path outside the current workdir, close that loaded instance before loading the current workdir copy.
+- Load workspace support libraries required by the target model before the model when they are present or referenced. Do not assume a fixed library name such as `ITKLib.slx`.
+- Treat MATLAB as a reusable long-lived process unless production explicitly uses `SATK_MATLAB_SESSION_MODE=new`. If a model or library required by this task is already loaded from a path outside the current workdir, close that loaded instance before loading the current workdir copy.
 - Kill stale task-owned `matlab-mcp-core-server` processes after SATK calls if they remain running and block later calls.
 
 ## Preferred End-to-End Workflow
@@ -99,7 +99,7 @@ If the post-workbook simulation/backfill phase hits any MATLAB/MCP/SATK timeout 
 1. Create or select a clean model workdir.
 2. Confirm the platform/Hermes Agent has copied the selected project addon into the workdir root.
 3. Place the user’s `<model>.slx` and `<model>.mat` in the same workdir; these user-provided files remain authoritative.
-4. Load support paths from the workdir, run `init_Global.m`, load the MAT, load `ITKLib.slx`, then load the model.
+4. Load support paths from the workdir, run project initialization scripts only when present or explicitly identified, load the MAT, load any workspace libraries/data dictionaries referenced by the target model, then load the model.
 5. Verify `which model_read` and `which model_overview` are nonempty after MATLAB setup. If not, restore the SATK tools path before deriving model facts.
 6. Derive root Inports and Outports from the model, including port order, data type, and dimensions. Do not guess.
 7. Inspect hierarchy and decision-producing blocks: Switch, RelationalOperator, Logical Operator, MinMax, MultiPortSwitch, Saturate, Lookup, Safe_Divide, Delay, Latch, StopWatch, LowPass, GradientLimiter.
@@ -121,7 +121,7 @@ At task start:
 
 - Record the original MATLAB current folder and path.
 - Record models/libraries already loaded before the task.
-- If `ITKLib` or the target model is already loaded from another path, close that loaded instance with `bdclose(name)` before loading the workspace copy.
+- If a project support library/model or the target model is already loaded from another path, close that loaded instance with `bdclose(name)` before loading the workspace copy.
 
 During the task:
 
